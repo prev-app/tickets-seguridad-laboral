@@ -128,12 +128,13 @@ export class DataClient {
     return this.request("/rest/v1/exit_responses", { method: "POST", body: JSON.stringify(row), prefer: "return=minimal" });
   }
 
-  async login(email, password) {
+  async login(accessCode) {
     if (!this.remote) return { user: { email: "demo@local" } };
+    if (!CONFIG.adminEmail) throw new Error("El acceso administrador todavía no está configurado.");
     const response = await fetch(`${CONFIG.supabaseUrl}/auth/v1/token?grant_type=password`, {
       method: "POST",
       headers: { apikey: CONFIG.supabaseAnonKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email: CONFIG.adminEmail, password: accessCode })
     });
     const payload = await response.json();
     if (!response.ok) throw apiError(payload, response.status);

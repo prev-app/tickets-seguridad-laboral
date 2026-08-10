@@ -430,10 +430,10 @@ function bindAdminActions() {
     const values = formObject(loginForm);
     try {
       setBusy(loginForm, true);
-      await client.login(values.email, values.password);
+      await client.login(values.access_code);
       await showAdminPanel();
     } catch (error) {
-      setMessage(message, error.status === 400 ? "Correo o contraseña incorrectos." : friendlyError(error));
+      setMessage(message, error.status === 400 ? "La clave de acceso es incorrecta." : friendlyError(error));
     } finally {
       setBusy(loginForm, false);
     }

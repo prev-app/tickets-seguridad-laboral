@@ -14,23 +14,27 @@ Aplicación web responsive con ticket de entrada, ticket de salida y panel admin
 - participantes que mejoraron, no variaron o disminuyeron;
 - valores extremos por criterio IQR y representatividad en la muestra;
 - reinicio protegido por confirmación;
-- control de acceso de administración mediante Supabase Auth y RLS.
+- acceso administrador mediante una única clave compartida, validada por Supabase Auth;
+- correo técnico oculto en la interfaz para recuperación y rotación de la clave;
+- protección de datos mediante políticas RLS.
 
 ## Puesta en marcha
 
 1. Crear un proyecto en Supabase.
 2. Ejecutar [`supabase.sql`](supabase.sql) en el SQL Editor.
-3. En **Authentication > Users**, crear el usuario administrador.
+3. En **Authentication > Users**, crear un único usuario administrador con un correo privado de recuperación y una clave robusta de al menos 12 caracteres.
 4. Copiar el UUID de ese usuario y ejecutar:
 
    ```sql
    insert into public.admin_profiles (user_id) values ('UUID-DEL-USUARIO');
    ```
 
-5. En [`config.js`](config.js), completar la URL del proyecto y la clave pública `anon`.
+5. En [`config.js`](config.js), completar la URL del proyecto, la clave pública `anon` y el correo técnico del usuario administrador. El correo queda oculto en la interfaz; los capacitadores ingresan únicamente la clave compartida.
 6. Publicar los archivos en GitHub Pages.
 
 La clave `anon` es pública por diseño. La protección real está en las políticas RLS de `supabase.sql`; nunca se debe incluir la clave `service_role` en el sitio.
+
+Si una persona deja el equipo, se debe cambiar la clave del usuario técnico en Supabase y compartir la nueva solamente con las personas autorizadas. Al ser una clave común, todos los capacitadores tienen los mismos permisos y no existe trazabilidad individual de quién realizó cada acción.
 
 ## Prueba local
 
