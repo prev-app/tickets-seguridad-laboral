@@ -41,6 +41,7 @@ create table if not exists public.entrance_responses (
   risk_identification smallint not null check (risk_identification between 1 and 5),
   unsafe_action smallint not null check (unsafe_action between 1 and 5),
   objective_answer text not null,
+  expectation_text text not null check (char_length(trim(expectation_text)) between 5 and 500),
   main_risk text not null check (char_length(main_risk) between 1 and 300),
   unique (course_id, email)
 );
@@ -54,6 +55,7 @@ create table if not exists public.exit_responses (
   unsafe_action smallint not null check (unsafe_action between 1 and 5),
   objective_answer text not null,
   preventive_measure text not null check (char_length(preventive_measure) between 1 and 300),
+  expectation_fulfillment text not null check (expectation_fulfillment in ('Totalmente', 'Parcialmente', 'No cumplió')),
   course_usefulness smallint not null check (course_usefulness between 1 and 5),
   unique (course_id, email)
 );
