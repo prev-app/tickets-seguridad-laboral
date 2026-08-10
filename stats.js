@@ -70,6 +70,154 @@ export function normalizeEmail(value) {
   return String(value || "").trim().toLocaleLowerCase();
 }
 
+export const EXPECTATION_FULFILLMENT = ["Totalmente", "Parcialmente", "No cumplió"];
+
+export const EXPECTATION_RULES = [
+  {
+    key: "capacities",
+    label: "Mejorar capacidades",
+    groups: [
+      ["mejorar", "fortalecer", "desarrollar", "ampliar", "potenciar"],
+      ["capacidad", "capacidades", "habilidad", "habilidades", "competencia", "competencias", "conocimiento", "conocimientos"]
+    ],
+    description: "mejorar/fortalecer/desarrollar + capacidades, habilidades, competencias o conocimientos"
+  },
+  {
+    key: "objectives",
+    label: "Lograr objetivos",
+    groups: [
+      ["lograr", "alcanzar", "cumplir", "conseguir"],
+      ["objetivo", "objetivos", "meta", "metas", "resultado", "resultados"]
+    ],
+    description: "lograr/alcanzar/cumplir + objetivos, metas o resultados"
+  },
+  {
+    key: "risk_prevention",
+    label: "Prevenir riesgos",
+    groups: [
+      ["prevenir", "evitar", "reducir", "minimizar", "controlar"],
+      ["riesgo", "riesgos", "accidente", "accidentes", "incidente", "incidentes"]
+    ],
+    description: "prevenir/evitar/reducir + riesgos, accidentes o incidentes"
+  },
+  {
+    key: "practical_tools",
+    label: "Obtener herramientas prácticas",
+    groups: [
+      ["obtener", "aplicar", "implementar", "incorporar", "usar", "adquirir"],
+      ["herramienta", "herramientas", "procedimiento", "procedimientos", "practica", "practicas", "trabajo"]
+    ],
+    description: "obtener/aplicar/implementar + herramientas, procedimientos o prácticas"
+  },
+  {
+    key: "regulations",
+    label: "Conocer la normativa",
+    groups: [
+      ["conocer", "comprender", "entender", "actualizar", "aprender"],
+      ["normativa", "normativas", "ley", "leyes", "reglamento", "reglamentos", "requisito", "requisitos"]
+    ],
+    description: "conocer/comprender/actualizar + normativa, leyes, reglamentos o requisitos"
+  },
+  {
+    key: "safety_culture",
+    label: "Promover cultura de seguridad",
+    groups: [
+      ["concientizar", "sensibilizar", "promover", "fortalecer"],
+      ["seguridad", "cultura", "prevencion"]
+    ],
+    description: "concientizar/sensibilizar/promover + seguridad, cultura o prevención"
+  },
+  {
+    key: "refresh_questions",
+    label: "Actualizarse y resolver dudas",
+    groups: [
+      ["actualizar", "refrescar", "repasar", "aclarar", "resolver"],
+      ["conocimiento", "conocimientos", "concepto", "conceptos", "duda", "dudas", "tema", "temas"]
+    ],
+    description: "actualizar/refrescar/aclarar + conocimientos, conceptos o dudas"
+  },
+  {
+    key: "other",
+    label: "Otras expectativas",
+    groups: [],
+    description: "respuestas que no reúnen ninguna combinación anterior"
+  }
+];
+
+export function normalizeExpectationText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function hasKeyword(text, keyword) {
+  return ` ${text} `.includes(` ${keyword} `);
+}
+
+export function classifyExpectation(value) {
+  const text = normalizeExpectationText(value);
+  const fallback = EXPECTATION_RULES.at(-1);
+  if (!text) return { ...fallback, matched: false };
+  const match = EXPECTATION_RULES.slice(0, -1).find(rule =>
+    rule.groups.every(group => group.some(keyword => hasKeyword(text, keyword)))
+  );
+  return { ...(match || fallback), matched: Boolean(match) };
+}
+
+function orderedDistribution(values, order) {
+  const valid = values.filter(value => order.includes(value));
+  return order.map(label => {
+    const count = valid.filter(value => value === label).length;
+    return { label, count, share: valid.length ? (count / valid.length) * 100 : 0 };
+  });
+}
+
+export function analyzeExpectations(entrances, exits) {
+  const classified = entrances
+    .filter(item => String(item.expectation_text || "").trim())
+    .map(item => ({ item, category: classifyExpectation(item.expectation_text) }));
+  const categoryCounts = new Map(EXPECTATION_RULES.map(rule => [rule.key, 0]));
+  classified.forEach(({ category }) => categoryCounts.set(category.key, categoryCounts.get(category.key) + 1));
+  const categories = EXPECTATION_RULES.map(rule => ({
+    key: rule.key,
+    label: rule.label,
+    description: rule.description,
+    count: categoryCounts.get(rule.key),
+    share: classified.length ? (categoryCounts.get(rule.key) / classified.length) * 100 : 0
+  }));
+
+  const pairs = pairResponses(entrances, exits);
+  const crossTab = categories.map(category => {
+    const entranceCount = category.count;
+    const categoryPairs = pairs.filter(pair =>
+      String(pair.entrance.expectation_text || "").trim() &&
+      classifyExpectation(pair.entrance.expectation_text).key === category.key &&
+      EXPECTATION_FULFILLMENT.includes(pair.exit.expectation_fulfillment)
+    );
+    const counts = Object.fromEntries(EXPECTATION_FULFILLMENT.map(label => [label, 0]));
+    categoryPairs.forEach(pair => { counts[pair.exit.expectation_fulfillment] += 1; });
+    return {
+      ...category,
+      entranceCount,
+      pairedCount: categoryPairs.length,
+      withoutExit: Math.max(entranceCount - categoryPairs.length, 0),
+      counts
+    };
+  });
+
+  return {
+    answered: classified.length,
+    coverage: entrances.length ? (classified.length / entrances.length) * 100 : 0,
+    categories,
+    fulfillment: orderedDistribution(exits.map(item => item.expectation_fulfillment), EXPECTATION_FULFILLMENT),
+    crossTab,
+    pairedAnswered: crossTab.reduce((total, row) => total + row.pairedCount, 0)
+  };
+}
+
 export function pairResponses(entrances, exits) {
   const exitsByEmail = new Map(exits.map(item => [normalizeEmail(item.email), item]));
   return entrances
@@ -156,6 +304,7 @@ export function buildReportData(course, entrances, exits) {
     usefulness: describe(exits.map(item => item.course_usefulness)),
     objectiveEntrance,
     objectiveExit,
-    objectiveChange: objectiveExit.share - objectiveEntrance.share
+    objectiveChange: objectiveExit.share - objectiveEntrance.share,
+    expectations: analyzeExpectations(entrances, exits)
   };
 }

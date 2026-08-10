@@ -7,6 +7,9 @@ Aplicación web responsive con ticket de entrada, ticket de salida y panel admin
 - configuración del curso, profesor/a, horas, modalidad y fechas;
 - apertura y cierre de la participación;
 - tickets breves vinculados por correo electrónico;
+- expectativa inicial en texto y cumplimiento final total, parcial o no cumplido;
+- clasificación auditable de expectativas por reglas de palabras clave;
+- gráfico y tabla que cruzan cada tipo de expectativa con su cumplimiento;
 - validación de que exista una entrada antes de aceptar la salida;
 - exportación de respuestas a CSV con fecha y hora;
 - informe estadístico descargable e imprimible en PDF;
@@ -22,6 +25,7 @@ Aplicación web responsive con ticket de entrada, ticket de salida y panel admin
 
 1. Crear un proyecto en Supabase.
 2. Ejecutar [`supabase.sql`](supabase.sql) en el SQL Editor.
+   Si la aplicación ya estaba instalada, ejecutar en cambio [`migration-expectations.sql`](migration-expectations.sql) para conservar las respuestas existentes y agregar el análisis de expectativas.
 3. En **Authentication > Users**, crear un único usuario administrador con el identificador técnico indicado en `config.js`, una clave robusta de al menos 12 caracteres y la opción **Auto confirm user** activada.
 4. Copiar el UUID de ese usuario y ejecutar:
 
