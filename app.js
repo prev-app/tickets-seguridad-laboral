@@ -227,11 +227,23 @@ function updateAdminSummary() {
   toggle.textContent = open ? "Cerrar participación" : "Reabrir participación";
 }
 
+function setResponseActionsDisabled(disabled) {
+  ["#download-data-button", "#view-report-button", "#download-report-button", "#reset-course-button"]
+    .forEach(selector => { $(selector).disabled = disabled; });
+}
+
 async function refreshAdmin() {
-  adminCourse = await client.getActiveCourse(true);
-  fillCourseForm(adminCourse);
-  adminResponses = adminCourse ? await client.getResponses(adminCourse.id) : { entrances: [], exits: [] };
-  updateAdminSummary();
+  let loaded = false;
+  setResponseActionsDisabled(true);
+  try {
+    adminCourse = await client.getActiveCourse(true);
+    fillCourseForm(adminCourse);
+    adminResponses = adminCourse ? await client.getResponses(adminCourse.id) : { entrances: [], exits: [] };
+    updateAdminSummary();
+    loaded = true;
+  } finally {
+    setResponseActionsDisabled(!loaded || !adminCourse);
+  }
 }
 
 function csvCell(value) {
