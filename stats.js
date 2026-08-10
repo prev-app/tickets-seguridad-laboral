@@ -1,0 +1,161 @@
+const numeric = values => values
+  .map(Number)
+  .filter(value => Number.isFinite(value));
+
+export function sum(values) {
+  return numeric(values).reduce((total, value) => total + value, 0);
+}
+
+export function mean(values) {
+  const clean = numeric(values);
+  return clean.length ? sum(clean) / clean.length : null;
+}
+
+export function median(values) {
+  const clean = numeric(values).sort((a, b) => a - b);
+  if (!clean.length) return null;
+  const middle = Math.floor(clean.length / 2);
+  return clean.length % 2 ? clean[middle] : (clean[middle - 1] + clean[middle]) / 2;
+}
+
+export function standardDeviation(values) {
+  const clean = numeric(values);
+  if (!clean.length) return null;
+  const average = mean(clean);
+  return Math.sqrt(clean.reduce((total, value) => total + ((value - average) ** 2), 0) / clean.length);
+}
+
+export function percentile(values, probability) {
+  const clean = numeric(values).sort((a, b) => a - b);
+  if (!clean.length) return null;
+  if (clean.length === 1) return clean[0];
+  const index = (clean.length - 1) * probability;
+  const lower = Math.floor(index);
+  const fraction = index - lower;
+  return clean[lower + 1] === undefined
+    ? clean[lower]
+    : clean[lower] + fraction * (clean[lower + 1] - clean[lower]);
+}
+
+export function describe(values) {
+  const clean = numeric(values);
+  if (!clean.length) {
+    return { n: 0, mean: null, median: null, min: null, max: null, sd: null, range: null };
+  }
+  const minimum = Math.min(...clean);
+  const maximum = Math.max(...clean);
+  return {
+    n: clean.length,
+    mean: mean(clean),
+    median: median(clean),
+    min: minimum,
+    max: maximum,
+    sd: standardDeviation(clean),
+    range: maximum - minimum
+  };
+}
+
+export function findOutliers(values) {
+  const clean = numeric(values);
+  if (clean.length < 4) return { values: [], q1: null, q3: null, iqr: null, lower: null, upper: null };
+  const q1 = percentile(clean, 0.25);
+  const q3 = percentile(clean, 0.75);
+  const iqr = q3 - q1;
+  const lower = q1 - 1.5 * iqr;
+  const upper = q3 + 1.5 * iqr;
+  return { values: clean.filter(value => value < lower || value > upper), q1, q3, iqr, lower, upper };
+}
+
+export function normalizeEmail(value) {
+  return String(value || "").trim().toLocaleLowerCase();
+}
+
+export function pairResponses(entrances, exits) {
+  const exitsByEmail = new Map(exits.map(item => [normalizeEmail(item.email), item]));
+  return entrances
+    .map(entrance => ({ entrance, exit: exitsByEmail.get(normalizeEmail(entrance.email)) }))
+    .filter(pair => pair.exit);
+}
+
+export function pairedMetric(entrances, exits, key) {
+  const pairs = pairResponses(entrances, exits)
+    .map(pair => ({
+      entrance: Number(pair.entrance[key]),
+      exit: Number(pair.exit[key])
+    }))
+    .filter(pair => Number.isFinite(pair.entrance) && Number.isFinite(pair.exit));
+  const deltas = pairs.map(pair => pair.exit - pair.entrance);
+  const outlierInfo = findOutliers(deltas);
+  const outlierSet = new Set(outlierInfo.values);
+  const withoutOutliers = deltas.filter(value => !outlierSet.has(value));
+  return {
+    entrance: describe(pairs.map(pair => pair.entrance)),
+    exit: describe(pairs.map(pair => pair.exit)),
+    change: describe(deltas),
+    improved: deltas.filter(value => value > 0).length,
+    unchanged: deltas.filter(value => value === 0).length,
+    worsened: deltas.filter(value => value < 0).length,
+    outliers: outlierInfo.values,
+    outlierShare: deltas.length ? (outlierInfo.values.length / deltas.length) * 100 : 0,
+    meanWithoutOutliers: withoutOutliers.length ? mean(withoutOutliers) : null,
+    pairs: pairs.length
+  };
+}
+
+export function distribution(values) {
+  const counts = new Map();
+  values
+    .filter(value => value !== null && value !== undefined && String(value).trim() !== "")
+    .forEach(value => counts.set(String(value), (counts.get(String(value)) || 0) + 1));
+  const total = [...counts.values()].reduce((acc, value) => acc + value, 0);
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count, share: total ? (count / total) * 100 : 0 }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "es"));
+}
+
+export function ageRanges(ages) {
+  const ranges = [
+    { label: "Menos de 25", min: -Infinity, max: 24 },
+    { label: "25–34", min: 25, max: 34 },
+    { label: "35–44", min: 35, max: 44 },
+    { label: "45–54", min: 45, max: 54 },
+    { label: "55 o más", min: 55, max: Infinity }
+  ];
+  const clean = numeric(ages);
+  return ranges.map(range => {
+    const count = clean.filter(age => age >= range.min && age <= range.max).length;
+    return { label: range.label, count, share: clean.length ? (count / clean.length) * 100 : 0 };
+  });
+}
+
+export function objectiveResult(items, correctAnswer) {
+  const valid = items.filter(item => String(item.objective_answer || "").trim());
+  const correct = valid.filter(item => String(item.objective_answer).trim() === String(correctAnswer || "").trim()).length;
+  return { n: valid.length, correct, share: valid.length ? (correct / valid.length) * 100 : 0 };
+}
+
+export function buildReportData(course, entrances, exits) {
+  const paired = pairResponses(entrances, exits);
+  const risk = pairedMetric(entrances, exits, "risk_identification");
+  const action = pairedMetric(entrances, exits, "unsafe_action");
+  const objectiveEntrance = objectiveResult(entrances, course.correct_answer);
+  const objectiveExit = objectiveResult(exits, course.correct_answer);
+  return {
+    course,
+    entrances,
+    exits,
+    paired,
+    completionRate: entrances.length ? (paired.length / entrances.length) * 100 : 0,
+    risk,
+    action,
+    age: describe(entrances.map(item => item.age)),
+    ageRanges: ageRanges(entrances.map(item => item.age)),
+    education: distribution(entrances.map(item => item.education_level)),
+    employment: distribution(entrances.map(item => item.employed === true || item.employed === "true" ? "Trabaja" : "No trabaja")),
+    sectors: distribution(entrances.filter(item => item.employed === true || item.employed === "true").map(item => item.sector || "Sin especificar")),
+    usefulness: describe(exits.map(item => item.course_usefulness)),
+    objectiveEntrance,
+    objectiveExit,
+    objectiveChange: objectiveExit.share - objectiveEntrance.share
+  };
+}

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Ticket de entrada de una capacitación de seguridad laboral.">
+  <title>Ticket de entrada</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="entrance">
+  <main class="shell shell--form">
+    <a class="back-link" href="index.html"><span aria-hidden="true">←</span> Volver</a>
+    <section class="course-card" data-course-header aria-live="polite">
+      <div class="skeleton skeleton--title"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton skeleton--short"></div>
+    </section>
+
+    <section class="form-card" data-form-panel hidden>
+      <header class="form-card__header">
+        <span class="eyebrow">Antes del curso</span>
+        <h1>Ticket de entrada</h1>
+        <p>Completalo en aproximadamente 2 minutos.</p>
+      </header>
+
+      <form id="entrance-form" novalidate>
+        <div class="field">
+          <label for="email">Correo electrónico</label>
+          <input id="email" name="email" type="email" autocomplete="email" required placeholder="nombre@correo.com">
+          <small>Se usará únicamente para vincular esta respuesta con tu ticket de salida.</small>
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label for="age">Edad</label>
+            <input id="age" name="age" type="number" min="16" max="100" inputmode="numeric" required>
+          </div>
+          <div class="field">
+            <label for="education_level">Máximo nivel académico alcanzado</label>
+            <select id="education_level" name="education_level" required>
+              <option value="">Seleccionar</option>
+              <option>Primario</option>
+              <option>Secundario</option>
+              <option>Terciario / técnico</option>
+              <option>Universitario</option>
+              <option>Posgrado</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset class="field">
+          <legend>¿Actualmente trabajás?</legend>
+          <div class="segmented segmented--two">
+            <label><input type="radio" name="employed" value="true" required><span>Sí</span></label>
+            <label><input type="radio" name="employed" value="false" required><span>No</span></label>
+          </div>
+        </fieldset>
+
+        <div class="field" id="sector-field" hidden>
+          <label for="sector">Sector en el que trabajás</label>
+          <select id="sector" name="sector">
+            <option value="">Seleccionar</option>
+            <option>Administración / oficina</option>
+            <option>Agropecuario</option>
+            <option>Comercio</option>
+            <option>Construcción</option>
+            <option>Educación</option>
+            <option>Industria</option>
+            <option>Salud</option>
+            <option>Sector público</option>
+            <option>Servicios</option>
+            <option>Transporte / logística</option>
+            <option>Otro</option>
+          </select>
+        </div>
+
+        <fieldset class="field scale-field">
+          <legend>Puedo identificar los principales riesgos de mi actividad.</legend>
+          <div class="scale" role="radiogroup" aria-label="Capacidad para identificar riesgos">
+            <span class="scale__hint">Nada</span>
+            <label><input type="radio" name="risk_identification" value="1" required><span>1</span></label>
+            <label><input type="radio" name="risk_identification" value="2"><span>2</span></label>
+            <label><input type="radio" name="risk_identification" value="3"><span>3</span></label>
+            <label><input type="radio" name="risk_identification" value="4"><span>4</span></label>
+            <label><input type="radio" name="risk_identification" value="5"><span>5</span></label>
+            <span class="scale__hint">Totalmente</span>
+          </div>
+        </fieldset>
+
+        <fieldset class="field scale-field">
+          <legend>Sé cómo actuar cuando detecto una situación insegura.</legend>
+          <div class="scale" role="radiogroup" aria-label="Capacidad para actuar">
+            <span class="scale__hint">Nada</span>
+            <label><input type="radio" name="unsafe_action" value="1" required><span>1</span></label>
+            <label><input type="radio" name="unsafe_action" value="2"><span>2</span></label>
+            <label><input type="radio" name="unsafe_action" value="3"><span>3</span></label>
+            <label><input type="radio" name="unsafe_action" value="4"><span>4</span></label>
+            <label><input type="radio" name="unsafe_action" value="5"><span>5</span></label>
+            <span class="scale__hint">Totalmente</span>
+          </div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend data-objective-question>Si detectás una condición que puede provocar un accidente, ¿qué deberías hacer primero?</legend>
+          <div class="radio-list" data-objective-options></div>
+        </fieldset>
+
+        <div class="field">
+          <label for="main_risk">¿Cuál es uno de los principales riesgos de tu actividad?</label>
+          <textarea id="main_risk" name="main_risk" rows="3" maxlength="300" required></textarea>
+        </div>
+
+        <div class="form-message" data-form-message role="status" aria-live="polite"></div>
+        <button class="button button--primary button--wide" type="submit">Enviar respuesta</button>
+      </form>
+    </section>
+
+    <section class="notice-card" data-unavailable-panel hidden></section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

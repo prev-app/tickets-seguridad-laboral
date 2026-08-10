@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Ticket de salida de una capacitación de seguridad laboral.">
+  <title>Ticket de salida</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="exit">
+  <main class="shell shell--form">
+    <a class="back-link" href="index.html"><span aria-hidden="true">←</span> Volver</a>
+    <section class="course-card" data-course-header aria-live="polite">
+      <div class="skeleton skeleton--title"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton skeleton--short"></div>
+    </section>
+
+    <section class="form-card" data-form-panel hidden>
+      <header class="form-card__header">
+        <span class="eyebrow">Al finalizar</span>
+        <h1>Ticket de salida</h1>
+        <p>Usá el mismo correo del ticket de entrada.</p>
+      </header>
+
+      <form id="exit-form" novalidate>
+        <div class="field">
+          <label for="email">Correo electrónico</label>
+          <input id="email" name="email" type="email" autocomplete="email" required placeholder="nombre@correo.com">
+          <small>Permite comparar tus respuestas. Los informes muestran datos agrupados.</small>
+        </div>
+
+        <fieldset class="field scale-field">
+          <legend>Puedo identificar los principales riesgos de mi actividad.</legend>
+          <div class="scale" role="radiogroup" aria-label="Capacidad para identificar riesgos">
+            <span class="scale__hint">Nada</span>
+            <label><input type="radio" name="risk_identification" value="1" required><span>1</span></label>
+            <label><input type="radio" name="risk_identification" value="2"><span>2</span></label>
+            <label><input type="radio" name="risk_identification" value="3"><span>3</span></label>
+            <label><input type="radio" name="risk_identification" value="4"><span>4</span></label>
+            <label><input type="radio" name="risk_identification" value="5"><span>5</span></label>
+            <span class="scale__hint">Totalmente</span>
+          </div>
+        </fieldset>
+
+        <fieldset class="field scale-field">
+          <legend>Sé cómo actuar cuando detecto una situación insegura.</legend>
+          <div class="scale" role="radiogroup" aria-label="Capacidad para actuar">
+            <span class="scale__hint">Nada</span>
+            <label><input type="radio" name="unsafe_action" value="1" required><span>1</span></label>
+            <label><input type="radio" name="unsafe_action" value="2"><span>2</span></label>
+            <label><input type="radio" name="unsafe_action" value="3"><span>3</span></label>
+            <label><input type="radio" name="unsafe_action" value="4"><span>4</span></label>
+            <label><input type="radio" name="unsafe_action" value="5"><span>5</span></label>
+            <span class="scale__hint">Totalmente</span>
+          </div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend data-objective-question>Si detectás una condición que puede provocar un accidente, ¿qué deberías hacer primero?</legend>
+          <div class="radio-list" data-objective-options></div>
+        </fieldset>
+
+        <div class="field">
+          <label for="preventive_measure">Mencioná una medida preventiva que aplicarías a partir de lo aprendido.</label>
+          <textarea id="preventive_measure" name="preventive_measure" rows="3" maxlength="300" required></textarea>
+        </div>
+
+        <fieldset class="field scale-field">
+          <legend>¿Qué tan útil te resultó el curso?</legend>
+          <div class="scale" role="radiogroup" aria-label="Utilidad del curso">
+            <span class="scale__hint">Poco</span>
+            <label><input type="radio" name="course_usefulness" value="1" required><span>1</span></label>
+            <label><input type="radio" name="course_usefulness" value="2"><span>2</span></label>
+            <label><input type="radio" name="course_usefulness" value="3"><span>3</span></label>
+            <label><input type="radio" name="course_usefulness" value="4"><span>4</span></label>
+            <label><input type="radio" name="course_usefulness" value="5"><span>5</span></label>
+            <span class="scale__hint">Mucho</span>
+          </div>
+        </fieldset>
+
+        <div class="form-message" data-form-message role="status" aria-live="polite"></div>
+        <button class="button button--primary button--wide" type="submit">Enviar respuesta</button>
+      </form>
+    </section>
+
+    <section class="notice-card" data-unavailable-panel hidden></section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
