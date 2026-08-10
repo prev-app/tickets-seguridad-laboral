@@ -15,21 +15,21 @@ Aplicación web responsive con ticket de entrada, ticket de salida y panel admin
 - valores extremos por criterio IQR y representatividad en la muestra;
 - reinicio protegido por confirmación;
 - acceso administrador mediante una única clave compartida, validada por Supabase Auth;
-- correo técnico oculto en la interfaz para recuperación y rotación de la clave;
+- identificador técnico oculto en la interfaz; la clave se rota desde Supabase;
 - protección de datos mediante políticas RLS.
 
 ## Puesta en marcha
 
 1. Crear un proyecto en Supabase.
 2. Ejecutar [`supabase.sql`](supabase.sql) en el SQL Editor.
-3. En **Authentication > Users**, crear un único usuario administrador con un correo privado de recuperación y una clave robusta de al menos 12 caracteres.
+3. En **Authentication > Users**, crear un único usuario administrador con el identificador técnico indicado en `config.js`, una clave robusta de al menos 12 caracteres y la opción **Auto confirm user** activada.
 4. Copiar el UUID de ese usuario y ejecutar:
 
    ```sql
    insert into public.admin_profiles (user_id) values ('UUID-DEL-USUARIO');
    ```
 
-5. En [`config.js`](config.js), completar la URL del proyecto, la clave pública `anon` y el correo técnico del usuario administrador. El correo queda oculto en la interfaz; los capacitadores ingresan únicamente la clave compartida.
+5. En [`config.js`](config.js), completar la URL del proyecto, la clave pública y el identificador técnico del usuario administrador. Los capacitadores ingresan únicamente la clave compartida.
 6. Publicar los archivos en GitHub Pages.
 
 La clave `anon` es pública por diseño. La protección real está en las políticas RLS de `supabase.sql`; nunca se debe incluir la clave `service_role` en el sitio.

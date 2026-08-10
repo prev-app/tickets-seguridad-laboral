@@ -3,6 +3,7 @@
 -- insert into public.admin_profiles (user_id) values ('UUID-DEL-USUARIO');
 
 create extension if not exists pgcrypto;
+create schema if not exists private;
 
 create table if not exists public.admin_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -57,7 +58,7 @@ create table if not exists public.exit_responses (
   unique (course_id, email)
 );
 
-create or replace function public.is_admin()
+create or replace function private.is_admin()
 returns boolean
 language sql
 stable
@@ -67,7 +68,7 @@ as $$
   select exists(select 1 from public.admin_profiles where user_id = auth.uid());
 $$;
 
-create or replace function public.course_accepting(target_course uuid)
+create or replace function private.course_accepting(target_course uuid)
 returns boolean
 language sql
 stable
@@ -80,7 +81,7 @@ as $$
   );
 $$;
 
-create or replace function public.matching_entrance_exists(target_course uuid, target_email text)
+create or replace function private.matching_entrance_exists(target_course uuid, target_email text)
 returns boolean
 language sql
 stable
@@ -120,7 +121,7 @@ as $$
   limit 1;
 $$;
 
-create or replace function public.normalize_response()
+create or replace function private.normalize_response()
 returns trigger
 language plpgsql
 security definer
@@ -135,11 +136,11 @@ $$;
 
 drop trigger if exists normalize_entrance_response on public.entrance_responses;
 create trigger normalize_entrance_response before insert on public.entrance_responses
-for each row execute function public.normalize_response();
+for each row execute function private.normalize_response();
 
 drop trigger if exists normalize_exit_response on public.exit_responses;
 create trigger normalize_exit_response before insert on public.exit_responses
-for each row execute function public.normalize_response();
+for each row execute function private.normalize_response();
 
 alter table public.admin_profiles enable row level security;
 alter table public.courses enable row level security;
@@ -147,33 +148,38 @@ alter table public.entrance_responses enable row level security;
 alter table public.exit_responses enable row level security;
 
 drop policy if exists "Admins read profiles" on public.admin_profiles;
-create policy "Admins read profiles" on public.admin_profiles for select to authenticated using (public.is_admin());
+create policy "Admins read profiles" on public.admin_profiles for select to authenticated using ((select private.is_admin()));
 
 drop policy if exists "Admins manage courses" on public.courses;
-create policy "Admins manage courses" on public.courses for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "Admins manage courses" on public.courses for all to authenticated using ((select private.is_admin())) with check ((select private.is_admin()));
 
 drop policy if exists "Public submits entrance while open" on public.entrance_responses;
 create policy "Public submits entrance while open" on public.entrance_responses for insert to anon, authenticated
-with check (public.course_accepting(course_id));
+with check (private.course_accepting(course_id));
 
 drop policy if exists "Public submits linked exit while open" on public.exit_responses;
 create policy "Public submits linked exit while open" on public.exit_responses for insert to anon, authenticated
-with check (public.course_accepting(course_id) and public.matching_entrance_exists(course_id, email));
+with check (private.course_accepting(course_id) and private.matching_entrance_exists(course_id, email));
 
 drop policy if exists "Admins manage entrances" on public.entrance_responses;
-create policy "Admins manage entrances" on public.entrance_responses for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "Admins manage entrances" on public.entrance_responses for all to authenticated using ((select private.is_admin())) with check ((select private.is_admin()));
 
 drop policy if exists "Admins manage exits" on public.exit_responses;
-create policy "Admins manage exits" on public.exit_responses for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "Admins manage exits" on public.exit_responses for all to authenticated using ((select private.is_admin())) with check ((select private.is_admin()));
 
 revoke all on public.admin_profiles, public.courses, public.entrance_responses, public.exit_responses from anon;
 revoke all on function public.get_active_course() from public;
-revoke all on function public.course_accepting(uuid) from public;
-revoke all on function public.matching_entrance_exists(uuid, text) from public;
+revoke all on schema private from public;
+revoke all on function private.is_admin() from public;
+revoke all on function private.course_accepting(uuid) from public;
+revoke all on function private.matching_entrance_exists(uuid, text) from public;
+revoke all on function private.normalize_response() from public;
 grant usage on schema public to anon, authenticated;
+grant usage on schema private to anon, authenticated;
 grant execute on function public.get_active_course() to anon, authenticated;
-grant execute on function public.course_accepting(uuid) to anon, authenticated;
-grant execute on function public.matching_entrance_exists(uuid, text) to anon, authenticated;
+grant execute on function private.is_admin() to authenticated;
+grant execute on function private.course_accepting(uuid) to anon, authenticated;
+grant execute on function private.matching_entrance_exists(uuid, text) to anon, authenticated;
 grant insert on public.entrance_responses, public.exit_responses to anon;
 grant select, insert, update, delete on public.courses, public.entrance_responses, public.exit_responses to authenticated;
 grant select on public.admin_profiles to authenticated;

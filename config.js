@@ -1,8 +1,8 @@
 export const CONFIG = {
   // Estos dos valores públicos se completan al conectar el proyecto de Supabase.
-  supabaseUrl: "",
-  supabaseAnonKey: "",
-  // Correo técnico oculto en la interfaz; Supabase lo usa junto con la clave compartida.
-  adminEmail: "",
+  supabaseUrl: "https://lijrhtgmusrrypbvmzov.supabase.co",
+  supabaseAnonKey: "sb_publishable_qHpIlAE-nA9wCMiTh2AlKQ_L2r_MX7k",
+  // Identificador técnico público; no recibe correo ni se muestra en la interfaz.
+  adminEmail: "capacitadores@prev-app.local",
   storagePrefix: "tickets-seguridad-v1"
 };
