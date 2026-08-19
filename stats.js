@@ -282,12 +282,55 @@ export function objectiveResult(items, correctAnswer) {
   return { n: valid.length, correct, share: valid.length ? (correct / valid.length) * 100 : 0 };
 }
 
+export function getTechnicalQuestions(course = {}) {
+  const configured = Array.isArray(course.technical_questions)
+    ? course.technical_questions.slice(0, 3).filter(item => item && String(item.question || "").trim())
+    : [];
+  if (configured.length) {
+    return configured.map((item, index) => ({
+      id: String(item.id || `q${index + 1}`),
+      question: String(item.question || "").trim(),
+      options: Array.isArray(item.options) ? item.options.map(String) : [],
+      correct_answer: String(item.correct_answer || "").trim()
+    }));
+  }
+  if (course.objective_question || course.correct_answer || Array.isArray(course.objective_options)) {
+    return [{
+      id: "q1",
+      question: String(course.objective_question || "Pregunta objetiva").trim(),
+      options: Array.isArray(course.objective_options) ? course.objective_options.map(String) : [],
+      correct_answer: String(course.correct_answer || "").trim()
+    }];
+  }
+  return [];
+}
+
+export function technicalAnswer(item, question, index = 0) {
+  const answers = item?.technical_answers;
+  const answer = answers && typeof answers === "object" && !Array.isArray(answers)
+    ? answers[question.id]
+    : undefined;
+  if (String(answer || "").trim()) return String(answer).trim();
+  return index === 0 ? String(item?.objective_answer || "").trim() : "";
+}
+
+export function technicalQuestionResults(course, entrances, exits) {
+  return getTechnicalQuestions(course).map((question, index) => {
+    const entranceItems = entrances.map(item => ({ objective_answer: technicalAnswer(item, question, index) }));
+    const exitItems = exits.map(item => ({ objective_answer: technicalAnswer(item, question, index) }));
+    const entrance = objectiveResult(entranceItems, question.correct_answer);
+    const exit = objectiveResult(exitItems, question.correct_answer);
+    return { ...question, entrance, exit, change: exit.share - entrance.share };
+  });
+}
+
 export function buildReportData(course, entrances, exits) {
   const paired = pairResponses(entrances, exits);
   const risk = pairedMetric(entrances, exits, "risk_identification");
   const action = pairedMetric(entrances, exits, "unsafe_action");
-  const objectiveEntrance = objectiveResult(entrances, course.correct_answer);
-  const objectiveExit = objectiveResult(exits, course.correct_answer);
+  const technicalQuestions = technicalQuestionResults(course, entrances, exits);
+  const objectiveEntrance = technicalQuestions[0]?.entrance || objectiveResult([], "");
+  const objectiveExit = technicalQuestions[0]?.exit || objectiveResult([], "");
   return {
     course,
     entrances,
@@ -305,6 +348,7 @@ export function buildReportData(course, entrances, exits) {
     objectiveEntrance,
     objectiveExit,
     objectiveChange: objectiveExit.share - objectiveEntrance.share,
+    technicalQuestions,
     expectations: analyzeExpectations(entrances, exits)
   };
 }

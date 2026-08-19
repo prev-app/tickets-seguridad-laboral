@@ -18,7 +18,18 @@ const DEFAULT_COURSE = {
     "Esperar a que otra persona la resuelva",
     "Ignorarla si todavía no ocurrió un accidente"
   ],
-  correct_answer: "Detener la tarea y comunicar la situación"
+  correct_answer: "Detener la tarea y comunicar la situación",
+  technical_questions: [{
+    id: "q1",
+    question: "Si detectás una condición que puede provocar un accidente, ¿qué deberías hacer primero?",
+    options: [
+      "Detener la tarea y comunicar la situación",
+      "Continuar con cuidado para no demorar",
+      "Esperar a que otra persona la resuelva",
+      "Ignorarla si todavía no ocurrió un accidente"
+    ],
+    correct_answer: "Detener la tarea y comunicar la situación"
+  }]
 };
 
 function configured() {
@@ -87,7 +98,7 @@ export class DataClient {
   async getActiveCourse(admin = false) {
     if (!this.remote) return readLocal("course", DEFAULT_COURSE);
     if (!admin) {
-      const rows = await this.request("/rest/v1/rpc/get_active_course", { method: "POST", body: "{}" });
+      const rows = await this.request("/rest/v1/rpc/get_active_course_with_questions", { method: "POST", body: "{}" });
       return rows[0] || null;
     }
     const rows = await this.request("/rest/v1/courses?is_active=eq.true&select=*&order=created_at.desc&limit=1", {}, admin);
