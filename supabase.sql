@@ -23,6 +23,10 @@ create table if not exists public.courses (
   objective_question text not null check (char_length(objective_question) between 5 and 240),
   objective_options jsonb not null check (jsonb_typeof(objective_options) = 'array' and jsonb_array_length(objective_options) >= 2),
   correct_answer text not null,
+  technical_questions jsonb not null check (
+    jsonb_typeof(technical_questions) = 'array'
+    and jsonb_array_length(technical_questions) between 1 and 3
+  ),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -41,6 +45,7 @@ create table if not exists public.entrance_responses (
   risk_identification smallint not null check (risk_identification between 1 and 5),
   unsafe_action smallint not null check (unsafe_action between 1 and 5),
   objective_answer text not null,
+  technical_answers jsonb not null check (jsonb_typeof(technical_answers) = 'object'),
   expectation_text text not null check (char_length(trim(expectation_text)) between 5 and 500),
   main_risk text not null check (char_length(main_risk) between 1 and 300),
   unique (course_id, email)
@@ -54,6 +59,7 @@ create table if not exists public.exit_responses (
   risk_identification smallint not null check (risk_identification between 1 and 5),
   unsafe_action smallint not null check (unsafe_action between 1 and 5),
   objective_answer text not null,
+  technical_answers jsonb not null check (jsonb_typeof(technical_answers) = 'object'),
   preventive_measure text not null check (char_length(preventive_measure) between 1 and 300),
   expectation_fulfillment text not null check (expectation_fulfillment in ('Totalmente', 'Parcialmente', 'No cumplió')),
   course_usefulness smallint not null check (course_usefulness between 1 and 5),
@@ -96,7 +102,7 @@ as $$
   );
 $$;
 
-create or replace function public.get_active_course()
+create or replace function public.get_active_course_with_questions()
 returns table (
   id uuid,
   name text,
@@ -108,7 +114,8 @@ returns table (
   status text,
   is_active boolean,
   objective_question text,
-  objective_options jsonb
+  objective_options jsonb,
+  technical_questions jsonb
 )
 language sql
 stable
@@ -116,7 +123,11 @@ security definer
 set search_path = public
 as $$
   select c.id, c.name, c.instructor, c.hours, c.modality, c.start_date, c.end_date,
-         c.status, c.is_active, c.objective_question, c.objective_options
+         c.status, c.is_active, c.objective_question, c.objective_options,
+         coalesce(
+           (select jsonb_agg(item - 'correct_answer') from jsonb_array_elements(c.technical_questions) item),
+           '[]'::jsonb
+         )
   from public.courses c
   where c.is_active = true
   order by c.created_at desc
@@ -170,7 +181,7 @@ drop policy if exists "Admins manage exits" on public.exit_responses;
 create policy "Admins manage exits" on public.exit_responses for all to authenticated using ((select private.is_admin())) with check ((select private.is_admin()));
 
 revoke all on public.admin_profiles, public.courses, public.entrance_responses, public.exit_responses from anon;
-revoke all on function public.get_active_course() from public;
+revoke all on function public.get_active_course_with_questions() from public;
 revoke all on schema private from public;
 revoke all on function private.is_admin() from public;
 revoke all on function private.course_accepting(uuid) from public;
@@ -178,7 +189,7 @@ revoke all on function private.matching_entrance_exists(uuid, text) from public;
 revoke all on function private.normalize_response() from public;
 grant usage on schema public to anon, authenticated;
 grant usage on schema private to anon, authenticated;
-grant execute on function public.get_active_course() to anon, authenticated;
+grant execute on function public.get_active_course_with_questions() to anon, authenticated;
 grant execute on function private.is_admin() to authenticated;
 grant execute on function private.course_accepting(uuid) to anon, authenticated;
 grant execute on function private.matching_entrance_exists(uuid, text) to anon, authenticated;

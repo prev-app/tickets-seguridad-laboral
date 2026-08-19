@@ -1,5 +1,5 @@
 import { DataClient } from "./data.js";
-import { buildReportData, classifyExpectation, normalizeEmail } from "./stats.js";
+import { buildReportData, classifyExpectation, getTechnicalQuestions, normalizeEmail, technicalAnswer } from "./stats.js";
 
 const client = new DataClient();
 const page = document.body.dataset.page;
@@ -55,17 +55,22 @@ function courseHeader(course) {
     </div>`;
 }
 
-function objectiveOptions(course) {
-  const question = $("[data-objective-question]");
-  const container = $("[data-objective-options]");
-  if (!question || !container) return;
-  question.textContent = course.objective_question;
-  const options = Array.isArray(course.objective_options) ? course.objective_options : [];
-  container.innerHTML = options.map((option, index) => `
-    <label>
-      <input type="radio" name="objective_answer" value="${escapeHtml(option)}" ${index === 0 ? "required" : ""}>
-      <span>${escapeHtml(option)}</span>
-    </label>`).join("");
+function technicalQuestions(course) {
+  const container = $("[data-technical-questions]");
+  if (!container) return;
+  container.innerHTML = getTechnicalQuestions(course).map((item, questionIndex) => `
+    <fieldset class="field technical-question">
+      <legend><span>Pregunta técnica ${questionIndex + 1}</span>${escapeHtml(item.question)}</legend>
+      <div class="radio-list">${item.options.map((option, optionIndex) => `
+        <label>
+          <input type="radio" name="technical_answer_${escapeHtml(item.id)}" value="${escapeHtml(option)}" ${optionIndex === 0 ? "required" : ""}>
+          <span>${escapeHtml(option)}</span>
+        </label>`).join("")}</div>
+    </fieldset>`).join("");
+}
+
+function collectTechnicalAnswers(course, values) {
+  return Object.fromEntries(getTechnicalQuestions(course).map(item => [item.id, values[`technical_answer_${item.id}`]]));
 }
 
 function setMessage(element, message, type = "error") {
@@ -111,7 +116,7 @@ async function initTicket(kind) {
       unavailable.innerHTML = `<h1>Participación cerrada</h1><p>Ya no se reciben respuestas para ${escapeHtml(course.name)}.</p>`;
       return;
     }
-    objectiveOptions(course);
+    technicalQuestions(course);
     formPanel.hidden = false;
     unavailable.hidden = true;
 
@@ -134,12 +139,15 @@ async function initTicket(kind) {
       setMessage(message, "", "info");
       if (!form.reportValidity()) return;
       const values = formObject(form);
+      const answers = collectTechnicalAnswers(course, values);
+      const firstAnswer = answers[getTechnicalQuestions(course)[0]?.id] || "";
       const base = {
         course_id: course.id,
         email: normalizeEmail(values.email),
         risk_identification: Number(values.risk_identification),
         unsafe_action: Number(values.unsafe_action),
-        objective_answer: values.objective_answer
+        objective_answer: firstAnswer,
+        technical_answers: answers
       };
       try {
         setBusy(form, true);
@@ -181,6 +189,78 @@ async function initTicket(kind) {
 let adminCourse = null;
 let adminResponses = { entrances: [], exits: [] };
 
+const DEFAULT_TECHNICAL_QUESTION = {
+  id: "q1",
+  question: "Si detectás una condición que puede provocar un accidente, ¿qué deberías hacer primero?",
+  options: ["Detener la tarea y comunicar la situación", "Continuar con cuidado", "Esperar a que otra persona lo resuelva", "Ignorarla"],
+  correct_answer: "Detener la tarea y comunicar la situación"
+};
+
+function createQuestionId() {
+  return `q_${globalThis.crypto?.randomUUID?.().replaceAll("-", "") || `${Date.now()}_${Math.random().toString(16).slice(2)}`}`;
+}
+
+function questionEditorCard(item, index, total) {
+  const options = Array.isArray(item.options) ? item.options : [];
+  return `<article class="question-editor-card" data-question-card data-question-id="${escapeHtml(item.id)}">
+    <div class="question-editor-card__header">
+      <strong>Pregunta ${index + 1}</strong>
+      <button class="button button--quiet button--small" type="button" data-remove-question ${total === 1 ? "hidden" : ""}>Quitar</button>
+    </div>
+    <div class="field">
+      <label>Enunciado</label>
+      <input data-question-text required maxlength="240" value="${escapeHtml(item.question)}" placeholder="Escribí una pregunta breve">
+    </div>
+    <div class="field">
+      <label>Opciones de respuesta</label>
+      <textarea data-question-options rows="4" required placeholder="Una opción por línea">${escapeHtml(options.join("\n"))}</textarea>
+      <small>Escribí al menos dos opciones, una debajo de la otra.</small>
+    </div>
+    <div class="field">
+      <label>Respuesta correcta</label>
+      <select data-correct-answer data-selected-answer="${escapeHtml(item.correct_answer)}" required></select>
+    </div>
+  </article>`;
+}
+
+function syncCorrectAnswer(card) {
+  const textarea = $("[data-question-options]", card);
+  const select = $("[data-correct-answer]", card);
+  const options = [...new Set(textarea.value.split("\n").map(value => value.trim()).filter(Boolean))];
+  const selected = select.value || select.dataset.selectedAnswer || "";
+  select.innerHTML = `<option value="">Seleccionar la respuesta correcta</option>${options.map(option => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}`;
+  select.value = options.includes(selected) ? selected : "";
+  delete select.dataset.selectedAnswer;
+}
+
+function renderQuestionEditor(items) {
+  const questions = items.length ? items.slice(0, 3) : [{ ...DEFAULT_TECHNICAL_QUESTION }];
+  const list = $("[data-question-editor]");
+  list.innerHTML = questions.map((item, index) => questionEditorCard(item, index, questions.length)).join("");
+  $$('[data-question-card]', list).forEach(syncCorrectAnswer);
+  $("#add-question-button").hidden = questions.length >= 3;
+  $("[data-question-count]").textContent = `${questions.length} de 3`;
+}
+
+function readQuestionEditor() {
+  return $$('[data-question-card]', $("[data-question-editor]")).map(card => ({
+    id: card.dataset.questionId,
+    question: $("[data-question-text]", card).value.trim(),
+    options: [...new Set($("[data-question-options]", card).value.split("\n").map(value => value.trim()).filter(Boolean))],
+    correct_answer: $("[data-correct-answer]", card).value.trim()
+  }));
+}
+
+function sameTechnicalQuestions(left, right) {
+  const comparable = items => items.map(item => ({
+    id: item.id,
+    question: item.question,
+    options: item.options,
+    correct_answer: item.correct_answer
+  }));
+  return JSON.stringify(comparable(left)) === JSON.stringify(comparable(right));
+}
+
 function fillCourseForm(course) {
   const form = $("#course-form");
   const values = course || {
@@ -193,13 +273,15 @@ function fillCourseForm(course) {
     end_date: "",
     objective_question: "Si detectás una condición que puede provocar un accidente, ¿qué deberías hacer primero?",
     objective_options: ["Detener la tarea y comunicar la situación", "Continuar con cuidado", "Esperar a que otra persona lo resuelva", "Ignorarla"],
-    correct_answer: "Detener la tarea y comunicar la situación"
+    correct_answer: "Detener la tarea y comunicar la situación",
+    technical_questions: [{ ...DEFAULT_TECHNICAL_QUESTION }]
   };
   Object.entries(values).forEach(([key, value]) => {
     const control = form.elements.namedItem(key);
     if (!control) return;
     control.value = key === "objective_options" && Array.isArray(value) ? value.join("\n") : (value ?? "");
   });
+  renderQuestionEditor(getTechnicalQuestions(values));
 }
 
 function updateAdminSummary() {
@@ -267,27 +349,41 @@ function downloadFile(name, content, type) {
 function exportCsv() {
   if (!adminCourse) return;
   const exits = new Map(adminResponses.exits.map(row => [normalizeEmail(row.email), row]));
+  const questions = getTechnicalQuestions(adminCourse);
+  const technicalHeaders = questions.flatMap((_, index) => [
+    `pregunta_tecnica_${index + 1}`,
+    `respuesta_pregunta_${index + 1}_entrada`,
+    `respuesta_pregunta_${index + 1}_salida`
+  ]);
   const headers = [
     "email", "fecha_entrada", "fecha_salida", "edad", "nivel_academico", "trabaja", "sector",
     "identifica_riesgos_entrada", "identifica_riesgos_salida", "actua_entrada", "actua_salida",
-    "respuesta_objetiva_entrada", "respuesta_objetiva_salida", "expectativa_inicial", "categoria_expectativa",
+    ...technicalHeaders, "expectativa_inicial", "categoria_expectativa",
     "cumplimiento_expectativa", "riesgo_principal", "medida_preventiva", "utilidad_curso"
   ];
   const rows = adminResponses.entrances.map(entrance => {
     const exit = exits.get(normalizeEmail(entrance.email)) || {};
+    const technicalCells = questions.flatMap((question, index) => [
+      question.question,
+      technicalAnswer(entrance, question, index),
+      technicalAnswer(exit, question, index)
+    ]);
     return [
       entrance.email, dateTime(entrance.responded_at), dateTime(exit.responded_at), entrance.age, entrance.education_level,
       entrance.employed ? "Sí" : "No", entrance.sector, entrance.risk_identification, exit.risk_identification,
-      entrance.unsafe_action, exit.unsafe_action, entrance.objective_answer, exit.objective_answer,
+      entrance.unsafe_action, exit.unsafe_action, ...technicalCells,
       entrance.expectation_text, classifyExpectation(entrance.expectation_text).label, exit.expectation_fulfillment,
       entrance.main_risk, exit.preventive_measure, exit.course_usefulness
     ];
   });
   const unmatchedExits = adminResponses.exits.filter(exit => !adminResponses.entrances.some(entrance => normalizeEmail(entrance.email) === normalizeEmail(exit.email)));
-  unmatchedExits.forEach(exit => rows.push([
-    exit.email, "", dateTime(exit.responded_at), "", "", "", "", "", exit.risk_identification, "", exit.unsafe_action,
-    "", exit.objective_answer, "", "", exit.expectation_fulfillment, "", exit.preventive_measure, exit.course_usefulness
-  ]));
+  unmatchedExits.forEach(exit => {
+    const technicalCells = questions.flatMap((question, index) => [question.question, "", technicalAnswer(exit, question, index)]);
+    rows.push([
+      exit.email, "", dateTime(exit.responded_at), "", "", "", "", "", exit.risk_identification, "", exit.unsafe_action,
+      ...technicalCells, "", "", exit.expectation_fulfillment, "", exit.preventive_measure, exit.course_usefulness
+    ]);
+  });
   const csv = `\uFEFF${headers.map(csvCell).join(",")}\r\n${rows.map(row => row.map(csvCell).join(",")).join("\r\n")}`;
   downloadFile(`respuestas-${slug(adminCourse.name)}.csv`, csv, "text/csv;charset=utf-8");
 }
@@ -376,9 +472,21 @@ function expectationTable(rows) {
   </table>`;
 }
 
+function technicalQuestionsTable(rows) {
+  if (!rows.some(row => row.entrance.n || row.exit.n)) return "<p class='muted'>Sin respuestas suficientes.</p>";
+  return `<table class="report-table technical-results-table">
+    <thead><tr><th>Pregunta técnica</th><th>Entrada</th><th>Salida</th><th>Cambio</th></tr></thead>
+    <tbody>${rows.map((row, index) => `<tr>
+      <td><strong>${index + 1}.</strong> ${escapeHtml(row.question)}</td>
+      <td>${row.entrance.n ? `${percent(row.entrance.share)} (${row.entrance.correct}/${row.entrance.n})` : "Sin datos"}</td>
+      <td>${row.exit.n ? `${percent(row.exit.share)} (${row.exit.correct}/${row.exit.n})` : "Sin datos"}</td>
+      <td>${row.entrance.n && row.exit.n ? `${row.change > 0 ? "+" : ""}${percent(row.change)}` : "—"}</td>
+    </tr>`).join("")}</tbody>
+  </table>`;
+}
+
 function reportHtml(data) {
   const generatedAt = new Intl.DateTimeFormat("es-AR", { dateStyle: "long", timeStyle: "short" }).format(new Date());
-  const objectiveAvailable = data.objectiveEntrance.n || data.objectiveExit.n;
   return `<article class="report-paper">
     <span class="eyebrow">Informe de capacitación</span>
     <h1>${escapeHtml(data.course.name)}</h1>
@@ -398,12 +506,9 @@ function reportHtml(data) {
     ${metricTable("Identificación de riesgos", data.risk)}
     ${metricTable("Actuación ante una situación insegura", data.action)}
 
-    <h2>Pregunta objetiva</h2>
-    ${objectiveAvailable ? `
-      <table class="report-table">
-        <thead><tr><th>Indicador</th><th>Entrada</th><th>Salida</th><th>Cambio</th></tr></thead>
-        <tbody><tr><td>Respuestas correctas</td><td>${percent(data.objectiveEntrance.share)} (${data.objectiveEntrance.correct}/${data.objectiveEntrance.n})</td><td>${percent(data.objectiveExit.share)} (${data.objectiveExit.correct}/${data.objectiveExit.n})</td><td>${data.objectiveChange > 0 ? "+" : ""}${percent(data.objectiveChange)}</td></tr></tbody>
-      </table>` : "<p class='muted'>Sin respuestas suficientes.</p>"}
+    <h2>Preguntas técnicas</h2>
+    <p class="muted">Porcentaje de respuestas correctas antes y después del curso.</p>
+    ${technicalQuestionsTable(data.technicalQuestions)}
 
     <h2>Expectativas iniciales y cumplimiento</h2>
     <p>Se clasificaron <strong>${data.expectations.answered} expectativas</strong> (${percent(data.expectations.coverage)} de los tickets de entrada). Cada respuesta pertenece a una sola categoría para que las cantidades y porcentajes no se dupliquen.</p>
@@ -521,16 +626,48 @@ function bindAdminActions() {
     $("#logout-button").hidden = true;
   });
 
+  $("#add-question-button").addEventListener("click", () => {
+    const questions = readQuestionEditor();
+    if (questions.length >= 3) return;
+    questions.push({
+      id: createQuestionId(),
+      question: "",
+      options: ["Opción 1", "Opción 2", "Opción 3"],
+      correct_answer: ""
+    });
+    renderQuestionEditor(questions);
+    const lastCard = $$('[data-question-card]', $("[data-question-editor]")).at(-1);
+    $("[data-question-text]", lastCard).focus();
+  });
+
+  $("[data-question-editor]").addEventListener("input", event => {
+    if (event.target.matches("[data-question-options]")) syncCorrectAnswer(event.target.closest("[data-question-card]"));
+  });
+
+  $("[data-question-editor]").addEventListener("click", event => {
+    const button = event.target.closest("[data-remove-question]");
+    if (!button) return;
+    const questions = readQuestionEditor();
+    if (questions.length <= 1) return;
+    const removedId = button.closest("[data-question-card]").dataset.questionId;
+    renderQuestionEditor(questions.filter(question => question.id !== removedId));
+  });
+
   $("#course-form").addEventListener("submit", async event => {
     event.preventDefault();
     const form = event.currentTarget;
     const message = $("[data-course-message]");
     if (!form.reportValidity()) return;
     const values = formObject(form);
-    const options = values.objective_options.split("\n").map(value => value.trim()).filter(Boolean);
-    if (options.length < 2) return setMessage(message, "Ingresá al menos dos opciones para la pregunta objetiva.");
-    if (!options.includes(values.correct_answer.trim())) return setMessage(message, "La respuesta correcta debe coincidir exactamente con una de las opciones.");
+    const questions = readQuestionEditor();
+    const invalidIndex = questions.findIndex(question => question.options.length < 2 || !question.options.includes(question.correct_answer));
+    if (invalidIndex >= 0) return setMessage(message, `Revisá la pregunta ${invalidIndex + 1}: debe tener al menos dos opciones y una respuesta correcta seleccionada.`);
+    const responseCount = adminResponses.entrances.length + adminResponses.exits.length;
+    if (adminCourse && responseCount && !sameTechnicalQuestions(questions, getTechnicalQuestions(adminCourse))) {
+      return setMessage(message, `El curso tiene ${responseCount} respuestas. Descargá el respaldo y reiniciá las respuestas antes de cambiar las preguntas técnicas, así el informe no mezcla evaluaciones diferentes.`);
+    }
     if (values.end_date < values.start_date) return setMessage(message, "La fecha final no puede ser anterior a la fecha de inicio.");
+    const firstQuestion = questions[0];
     try {
       setBusy(form, true);
       adminCourse = await client.saveCourse({
@@ -541,9 +678,10 @@ function bindAdminActions() {
         modality: values.modality,
         start_date: values.start_date,
         end_date: values.end_date,
-        objective_question: values.objective_question.trim(),
-        objective_options: options,
-        correct_answer: values.correct_answer.trim()
+        technical_questions: questions,
+        objective_question: firstQuestion.question,
+        objective_options: firstQuestion.options,
+        correct_answer: firstQuestion.correct_answer
       });
       await refreshAdmin();
       setMessage(message, "Configuración guardada.", "success");

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Administración de tickets de capacitación.">
   <title>Administración | Evaluación de capacitaciones</title>
-  <link rel="stylesheet" href="styles.css?v=20260810-2">
+  <link rel="stylesheet" href="styles.css?v=20260819-1">
 </head>
 <body data-page="admin">
   <main class="shell shell--admin">
@@ -82,19 +82,20 @@
                 <label for="end-date">Fecha de finalización</label>
                 <input id="end-date" name="end_date" type="date" required>
               </div>
-              <div class="field field--full">
-                <label for="objective-question">Pregunta objetiva</label>
-                <input id="objective-question" name="objective_question" required maxlength="240">
-              </div>
-              <div class="field field--full">
-                <label for="objective-options">Opciones, una por línea</label>
-                <textarea id="objective-options" name="objective_options" rows="4" required></textarea>
-              </div>
-              <div class="field field--full">
-                <label for="correct-answer">Respuesta correcta</label>
-                <input id="correct-answer" name="correct_answer" required maxlength="240">
-              </div>
             </div>
+            <section class="question-editor">
+              <div class="question-editor__heading">
+                <div>
+                  <span class="section-kicker">Evaluación del aprendizaje</span>
+                  <h3>Preguntas técnicas</h3>
+                </div>
+                <span class="question-count" data-question-count>1 de 3</span>
+              </div>
+              <p class="muted">Podés configurar de una a tres preguntas según el tema del curso. Se mostrarán iguales en los tickets de entrada y salida.</p>
+              <div class="question-editor__list" data-question-editor></div>
+              <button class="button button--secondary" id="add-question-button" type="button">+ Agregar pregunta</button>
+              <p class="microcopy">Configurá las preguntas antes de recibir respuestas. Si el curso ya tiene datos, descargá el respaldo y reinicialos antes de cambiarlas.</p>
+            </section>
             <div class="form-message" data-course-message role="status"></div>
             <button class="button button--primary" type="submit">Guardar configuración</button>
           </form>
@@ -177,6 +178,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=20260810-3"></script>
+  <script type="module" src="app.js?v=20260819-1"></script>
 </body>
 </html>
