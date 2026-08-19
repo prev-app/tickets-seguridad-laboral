@@ -21,8 +21,8 @@
       <form id="login-form" novalidate>
         <div class="field">
           <label for="access-code">Clave de acceso</label>
-          <input id="access-code" name="access_code" type="password" autocomplete="current-password" required minlength="12">
-          <small>La clave distingue mayúsculas y minúsculas.</small>
+          <input id="access-code" name="access_code" type="password" autocomplete="current-password" required minlength="6" placeholder="Ingresá la clave compartida">
+          <small>Solo necesitás esta clave. No se pide correo ni nombre de usuario.</small>
         </div>
         <div class="form-message" data-login-message role="status"></div>
         <button class="button button--primary button--wide" type="submit">Ingresar al panel</button>

@@ -26,7 +26,7 @@ Aplicación web responsive con ticket de entrada, ticket de salida y panel admin
 1. Crear un proyecto en Supabase.
 2. Ejecutar [`supabase.sql`](supabase.sql) en el SQL Editor.
    Si la aplicación ya estaba instalada, ejecutar en cambio [`migration-expectations.sql`](migration-expectations.sql) para conservar las respuestas existentes y agregar el análisis de expectativas.
-3. En **Authentication > Users**, crear un único usuario administrador con el identificador técnico indicado en `config.js`, una clave robusta de al menos 12 caracteres y la opción **Auto confirm user** activada.
+3. En **Authentication > Users**, crear un único usuario administrador con el identificador técnico indicado en `config.js`, una clave compartida de al menos 6 caracteres y la opción **Auto confirm user** activada.
 4. Copiar el UUID de ese usuario y ejecutar:
 
    ```sql
