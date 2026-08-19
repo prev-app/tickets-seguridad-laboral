@@ -1,5 +1,5 @@
-import { DataClient } from "./data.js";
-import { buildReportData, classifyExpectation, getTechnicalQuestions, normalizeEmail, technicalAnswer } from "./stats.js";
+import { DataClient } from "./data.js?v=20260819-2";
+import { buildReportData, classifyExpectation, getTechnicalQuestions, normalizeEmail, technicalAnswer } from "./stats.js?v=20260819-2";
 
 const client = new DataClient();
 const page = document.body.dataset.page;

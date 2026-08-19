@@ -1,5 +1,5 @@
-import { CONFIG } from "./config.js";
-import { normalizeEmail } from "./stats.js";
+import { CONFIG } from "./config.js?v=20260819-2";
+import { normalizeEmail } from "./stats.js?v=20260819-2";
 
 const DEFAULT_COURSE = {
   id: "demo-course-1",
