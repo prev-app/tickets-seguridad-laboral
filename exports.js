@@ -1,4 +1,4 @@
-import { classifyExpectation, getTechnicalQuestions, normalizeEmail, technicalAnswer } from "./stats.js?v=20260821-1";
+import { classifyExpectation, getTechnicalQuestions, normalizeEmail, technicalAnswer } from "./stats.js?v=20260821-2";
 
 const LABELS = {
   workers: "Trabajadores",

@@ -261,6 +261,141 @@ export function distribution(values) {
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "es"));
 }
 
+const ADU_NO_RESPONSE = {
+  key: "no_response",
+  label: "No indicó aspectos pendientes",
+  priority: "Seguimiento",
+  description: "ticket de salida sin respuesta abierta"
+};
+
+export const ADU_IMPROVEMENT_RULES = [
+  {
+    key: "understanding_gap",
+    label: "Comprensión insuficiente o confusión",
+    priority: "Alta",
+    terms: ["no comprendi", "no entendi", "no logre comprender", "no logre entender", "quede confundido", "quede confundida", "me genero confusion", "no me quedo claro"],
+    description: "expresa que no comprendió, no entendió o terminó confundido/a"
+  },
+  {
+    key: "understood",
+    label: "Comprensión lograda / sin mejoras pendientes",
+    priority: "Logrado",
+    terms: ["entendi todo", "comprendi todo", "me quedo claro", "ningun aspecto", "ninguna mejora", "nada pendiente", "sin aspectos pendientes", "todo claro"],
+    description: "declara comprensión o ausencia explícita de aspectos pendientes"
+  },
+  {
+    key: "checklists",
+    label: "Selección y uso de checklists",
+    priority: "Media",
+    terms: ["checklist", "checklists", "lista de chequeo", "listas de chequeo"],
+    description: "menciona selección, aplicación o alcance de checklists"
+  },
+  {
+    key: "writing",
+    label: "Redacción de incumplimientos y observaciones",
+    priority: "Media",
+    terms: ["redaccion", "redactar", "incumplimiento", "incumplimientos", "observacion", "observaciones"],
+    description: "menciona redacción, incumplimientos u observaciones"
+  },
+  {
+    key: "platform",
+    label: "Uso de plataforma o tablet ADU",
+    priority: "Media",
+    terms: ["plataforma", "tablet", "navegacion", "conectividad"],
+    description: "menciona operación de ADU, tablet, navegación o conectividad"
+  },
+  {
+    key: "compliance_load",
+    label: "Carga de cumple/no cumple y acciones",
+    priority: "Media",
+    terms: ["cumple no cumple", "no cumple", "accion asociada", "acciones asociadas"],
+    description: "menciona criterios de cumplimiento o acciones asociadas"
+  },
+  {
+    key: "act_type",
+    label: "Tipo o subtipo de acta",
+    priority: "Media",
+    terms: ["tipo de acta", "tipos de acta", "subtipo", "subtipos", "seleccion del acta"],
+    description: "menciona la elección del tipo o subtipo de acta"
+  },
+  {
+    key: "activity_ciiu",
+    label: "Actividad y clasificación CIIU",
+    priority: "Media",
+    terms: ["ciiu", "codigo de actividad", "clasificar actividad", "clasificacion de actividad"],
+    description: "menciona actividad o clasificación CIIU"
+  },
+  {
+    key: "address_status",
+    label: "Estado del domicilio",
+    priority: "Media",
+    terms: ["domicilio", "estado del establecimiento"],
+    description: "menciona criterios sobre domicilio o establecimiento"
+  },
+  {
+    key: "environmental_measurements",
+    label: "Mediciones ambientales",
+    priority: "Media",
+    terms: ["medicion ambiental", "mediciones ambientales"],
+    description: "menciona carga o interpretación de mediciones ambientales"
+  },
+  {
+    key: "inspection_count",
+    label: "Cómputo de inspecciones",
+    priority: "Media",
+    terms: ["computo de inspeccion", "computo de inspecciones", "contabilizar inspecciones"],
+    description: "menciona el cómputo o contabilización de inspecciones"
+  },
+  {
+    key: "general_review",
+    label: "Repaso o práctica integral",
+    priority: "Alta",
+    terms: ["repasar", "volver a ver", "practicar", "mas practica", "reforzar", "profundizar", "ganar seguridad", "no me siento seguro", "procedimiento completo", "circuito completo"],
+    description: "solicita repaso, práctica o refuerzo general sin un tema ADU dominante"
+  },
+  {
+    key: "other",
+    label: "Otros aspectos",
+    priority: "Revisar",
+    terms: [],
+    description: "respuesta que no reúne ninguna regla anterior"
+  }
+];
+
+export function classifyAduImprovement(value) {
+  const text = normalizeExpectationText(value);
+  if (!text) return { ...ADU_NO_RESPONSE, matched: false };
+  const match = ADU_IMPROVEMENT_RULES.slice(0, -1).find(rule =>
+    rule.terms.some(term => hasKeyword(text, term))
+  );
+  const fallback = ADU_IMPROVEMENT_RULES.at(-1);
+  return { ...(match || fallback), matched: Boolean(match) };
+}
+
+export function analyzeAduImprovements(exits) {
+  const rules = [...ADU_IMPROVEMENT_RULES.slice(0, -1), ADU_NO_RESPONSE, ADU_IMPROVEMENT_RULES.at(-1)];
+  const counts = new Map(rules.map(rule => [rule.key, 0]));
+  exits.forEach(item => {
+    const category = classifyAduImprovement(item.adu_improvement_needed);
+    counts.set(category.key, (counts.get(category.key) || 0) + 1);
+  });
+  const total = exits.length;
+  const answered = exits.filter(item => String(item.adu_improvement_needed || "").trim()).length;
+  return {
+    total,
+    answered,
+    coverage: total ? (answered / total) * 100 : 0,
+    categories: rules.map(rule => ({
+      key: rule.key,
+      label: rule.label,
+      priority: rule.priority,
+      description: rule.description,
+      count: counts.get(rule.key) || 0,
+      share: total ? ((counts.get(rule.key) || 0) / total) * 100 : 0
+    }))
+  };
+}
+
 export function ageRanges(ages) {
   const ranges = [
     { label: "Menos de 25", min: -Infinity, max: 24 },
@@ -358,7 +493,8 @@ export function buildReportData(course, entrances, exits) {
       checklistClarity: pairedMetric(entrances, exits, "adu_checklist_clarity"),
       writingConfidence: pairedMetric(entrances, exits, "adu_writing_confidence"),
       difficulties: distribution(entrances.map(item => item.adu_main_difficulty)),
-      improvementNeeds: exits.map(item => String(item.adu_improvement_needed || "").trim()).filter(Boolean)
+      improvementNeeds: exits.map(item => String(item.adu_improvement_needed || "").trim()).filter(Boolean),
+      improvementAnalysis: analyzeAduImprovements(exits)
     }
   };
 }
