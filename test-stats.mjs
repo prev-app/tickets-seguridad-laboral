@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, findOutliers, pairResponses, pairedMetric, buildReportData, classifyExpectation, getTechnicalQuestions, technicalAnswer } from "./stats.js";
+import { buildCsvData } from "./exports.js";
 
 assert.deepEqual(describe([1, 2, 3, 4, 5]), { n: 5, mean: 3, median: 3, min: 1, max: 5, sd: Math.sqrt(2), range: 4 });
 assert.deepEqual(findOutliers([0, 0, 0, 0, 0, 5]).values, [5]);
@@ -43,6 +44,46 @@ assert.equal(technicalReport.technicalQuestions[0].entrance.share, 50);
 assert.equal(technicalReport.technicalQuestions[1].entrance.share, 50);
 assert.equal(technicalReport.technicalQuestions[1].exit.share, 100);
 assert.equal(technicalReport.technicalQuestions[1].change, 50);
+
+const inspectorEntrances = [
+  { email: "inspector1@srt.gob.ar", age: 34, education_level: "Universitario", inspector_tenure: "1 a 3 años", adu_comfort: 2, adu_checklist_clarity: 2, adu_writing_confidence: 3, adu_main_difficulty: "Selección de checklists", technical_answers: { adu_q1: "Completar ambos" } },
+  { email: "inspector2@srt.gob.ar", age: 46, education_level: "Terciario / técnico", inspector_tenure: "8 años o más", adu_comfort: 4, adu_checklist_clarity: 3, adu_writing_confidence: 3, adu_main_difficulty: "Uso de la plataforma/tablet", technical_answers: { adu_q1: "No desplegar ninguno" } }
+];
+const inspectorExits = [
+  { email: "inspector1@srt.gob.ar", adu_comfort: 4, adu_checklist_clarity: 5, adu_writing_confidence: 4, adu_improvement_needed: "Mejorar el rendimiento de la tablet", technical_answers: { adu_q1: "No desplegar ninguno" }, course_usefulness: 5 },
+  { email: "inspector2@srt.gob.ar", adu_comfort: 5, adu_checklist_clarity: 5, adu_writing_confidence: 4, technical_answers: { adu_q1: "No desplegar ninguno" }, course_usefulness: 5 }
+];
+const inspectorCourse = {
+  audience_type: "inspectors",
+  technical_questions: [{ id: "adu_q1", question: "Inspección fallida", options: ["Completar ambos", "No desplegar ninguno"], correct_answer: "No desplegar ninguno" }]
+};
+const inspectorReport = buildReportData(inspectorCourse, inspectorEntrances, inspectorExits);
+assert.equal(inspectorReport.audience, "inspectors");
+assert.equal(inspectorReport.adu.comfort.change.mean, 1.5);
+assert.equal(inspectorReport.adu.checklistClarity.improved, 2);
+assert.equal(inspectorReport.adu.difficulties.length, 2);
+assert.equal(inspectorReport.adu.improvementNeeds.length, 1);
+assert.equal(inspectorReport.inspectorTenure.length, 2);
+assert.equal(inspectorReport.risk.pairs, 0);
+assert.equal(inspectorReport.technicalQuestions[0].entrance.share, 50);
+assert.equal(inspectorReport.technicalQuestions[0].exit.share, 100);
+
+const inspectorCsv = buildCsvData(inspectorCourse, { entrances: inspectorEntrances, exits: inspectorExits });
+assert.ok(inspectorCsv.headers.includes("principal_dificultad_adu"));
+assert.ok(inspectorCsv.headers.includes("aspecto_adu_a_mejorar"));
+assert.ok(!inspectorCsv.headers.includes("trabaja"));
+assert.ok(inspectorCsv.rows.every(row => row.length === inspectorCsv.headers.length));
+
+const workerCsv = buildCsvData(technicalCourse, { entrances, exits });
+assert.ok(workerCsv.headers.includes("trabaja"));
+assert.ok(workerCsv.headers.includes("sector"));
+assert.ok(workerCsv.rows.every(row => row.length === workerCsv.headers.length));
+
+const internalCsv = buildCsvData({ ...technicalCourse, audience_type: "internal" }, { entrances, exits });
+assert.ok(!internalCsv.headers.includes("trabaja"));
+assert.ok(!internalCsv.headers.includes("sector"));
+assert.ok(internalCsv.headers.includes("identifica_riesgos_entrada"));
+assert.ok(internalCsv.rows.every(row => row.length === internalCsv.headers.length));
 
 assert.equal(classifyExpectation("Mejorar capacidades y conocimientos").key, "capacities");
 assert.equal(classifyExpectation("Lograr los objetivos previstos").key, "objectives");

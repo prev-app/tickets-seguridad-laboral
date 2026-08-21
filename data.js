@@ -1,5 +1,5 @@
-import { CONFIG } from "./config.js?v=20260819-2";
-import { normalizeEmail } from "./stats.js?v=20260819-2";
+import { CONFIG } from "./config.js?v=20260821-1";
+import { normalizeEmail } from "./stats.js?v=20260821-1";
 
 const DEFAULT_COURSE = {
   id: "demo-course-1",
@@ -7,6 +7,7 @@ const DEFAULT_COURSE = {
   instructor: "Profesor/a a confirmar",
   hours: 8,
   modality: "Presencial",
+  audience_type: "workers",
   start_date: new Date().toISOString().slice(0, 10),
   end_date: new Date().toISOString().slice(0, 10),
   status: "open",

@@ -228,10 +228,10 @@ export function pairResponses(entrances, exits) {
 export function pairedMetric(entrances, exits, key) {
   const pairs = pairResponses(entrances, exits)
     .map(pair => ({
-      entrance: Number(pair.entrance[key]),
-      exit: Number(pair.exit[key])
+      entrance: pair.entrance[key] === null || pair.entrance[key] === undefined || pair.entrance[key] === "" ? null : Number(pair.entrance[key]),
+      exit: pair.exit[key] === null || pair.exit[key] === undefined || pair.exit[key] === "" ? null : Number(pair.exit[key])
     }))
-    .filter(pair => Number.isFinite(pair.entrance) && Number.isFinite(pair.exit));
+    .filter(pair => pair.entrance !== null && pair.exit !== null && Number.isFinite(pair.entrance) && Number.isFinite(pair.exit));
   const deltas = pairs.map(pair => pair.exit - pair.entrance);
   const outlierInfo = findOutliers(deltas);
   const outlierSet = new Set(outlierInfo.values);
@@ -325,6 +325,7 @@ export function technicalQuestionResults(course, entrances, exits) {
 }
 
 export function buildReportData(course, entrances, exits) {
+  const audience = ["workers", "inspectors", "internal"].includes(course?.audience_type) ? course.audience_type : "workers";
   const paired = pairResponses(entrances, exits);
   const risk = pairedMetric(entrances, exits, "risk_identification");
   const action = pairedMetric(entrances, exits, "unsafe_action");
@@ -337,6 +338,7 @@ export function buildReportData(course, entrances, exits) {
     exits,
     paired,
     completionRate: entrances.length ? (paired.length / entrances.length) * 100 : 0,
+    audience,
     risk,
     action,
     age: describe(entrances.map(item => item.age)),
@@ -349,6 +351,14 @@ export function buildReportData(course, entrances, exits) {
     objectiveExit,
     objectiveChange: objectiveExit.share - objectiveEntrance.share,
     technicalQuestions,
-    expectations: analyzeExpectations(entrances, exits)
+    expectations: analyzeExpectations(entrances, exits),
+    inspectorTenure: distribution(entrances.map(item => item.inspector_tenure)),
+    adu: {
+      comfort: pairedMetric(entrances, exits, "adu_comfort"),
+      checklistClarity: pairedMetric(entrances, exits, "adu_checklist_clarity"),
+      writingConfidence: pairedMetric(entrances, exits, "adu_writing_confidence"),
+      difficulties: distribution(entrances.map(item => item.adu_main_difficulty)),
+      improvementNeeds: exits.map(item => String(item.adu_improvement_needed || "").trim()).filter(Boolean)
+    }
   };
 }

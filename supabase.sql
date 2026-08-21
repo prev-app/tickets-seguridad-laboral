@@ -16,6 +16,7 @@ create table if not exists public.courses (
   instructor text not null check (char_length(instructor) between 2 and 120),
   hours numeric(6,1) not null check (hours > 0 and hours <= 1000),
   modality text not null check (modality in ('Presencial', 'Online', 'Mixto')),
+  audience_type text not null default 'workers' check (audience_type in ('workers', 'inspectors', 'internal')),
   start_date date not null,
   end_date date not null check (end_date >= start_date),
   status text not null default 'open' check (status in ('open', 'closed')),
@@ -40,14 +41,19 @@ create table if not exists public.entrance_responses (
   responded_at timestamptz not null default now(),
   age smallint not null check (age between 16 and 100),
   education_level text not null check (education_level in ('Primario', 'Secundario', 'Terciario / técnico', 'Universitario', 'Posgrado')),
-  employed boolean not null,
+  employed boolean,
   sector text,
-  risk_identification smallint not null check (risk_identification between 1 and 5),
-  unsafe_action smallint not null check (unsafe_action between 1 and 5),
+  risk_identification smallint check (risk_identification between 1 and 5),
+  unsafe_action smallint check (unsafe_action between 1 and 5),
   objective_answer text not null,
   technical_answers jsonb not null check (jsonb_typeof(technical_answers) = 'object'),
-  expectation_text text not null check (char_length(trim(expectation_text)) between 5 and 500),
-  main_risk text not null check (char_length(main_risk) between 1 and 300),
+  expectation_text text check (char_length(trim(expectation_text)) between 5 and 500),
+  main_risk text check (char_length(main_risk) between 1 and 300),
+  inspector_tenure text check (inspector_tenure in ('Menos de 1 año', '1 a 3 años', '4 a 7 años', '8 años o más')),
+  adu_comfort smallint check (adu_comfort between 1 and 5),
+  adu_checklist_clarity smallint check (adu_checklist_clarity between 1 and 5),
+  adu_writing_confidence smallint check (adu_writing_confidence between 1 and 5),
+  adu_main_difficulty text check (char_length(adu_main_difficulty) between 1 and 120),
   unique (course_id, email)
 );
 
@@ -56,13 +62,17 @@ create table if not exists public.exit_responses (
   course_id uuid not null references public.courses(id) on delete cascade,
   email text not null check (email ~* '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$'),
   responded_at timestamptz not null default now(),
-  risk_identification smallint not null check (risk_identification between 1 and 5),
-  unsafe_action smallint not null check (unsafe_action between 1 and 5),
+  risk_identification smallint check (risk_identification between 1 and 5),
+  unsafe_action smallint check (unsafe_action between 1 and 5),
   objective_answer text not null,
   technical_answers jsonb not null check (jsonb_typeof(technical_answers) = 'object'),
-  preventive_measure text not null check (char_length(preventive_measure) between 1 and 300),
-  expectation_fulfillment text not null check (expectation_fulfillment in ('Totalmente', 'Parcialmente', 'No cumplió')),
+  preventive_measure text check (char_length(preventive_measure) between 1 and 300),
+  expectation_fulfillment text check (expectation_fulfillment in ('Totalmente', 'Parcialmente', 'No cumplió')),
   course_usefulness smallint not null check (course_usefulness between 1 and 5),
+  adu_comfort smallint check (adu_comfort between 1 and 5),
+  adu_checklist_clarity smallint check (adu_checklist_clarity between 1 and 5),
+  adu_writing_confidence smallint check (adu_writing_confidence between 1 and 5),
+  adu_improvement_needed text check (char_length(adu_improvement_needed) <= 500),
   unique (course_id, email)
 );
 
@@ -109,6 +119,7 @@ returns table (
   instructor text,
   hours numeric,
   modality text,
+  audience_type text,
   start_date date,
   end_date date,
   status text,
@@ -122,7 +133,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select c.id, c.name, c.instructor, c.hours, c.modality, c.start_date, c.end_date,
+  select c.id, c.name, c.instructor, c.hours, c.modality, c.audience_type, c.start_date, c.end_date,
          c.status, c.is_active, c.objective_question, c.objective_options,
          coalesce(
            (select jsonb_agg(item - 'correct_answer') from jsonb_array_elements(c.technical_questions) item),
@@ -147,6 +158,61 @@ begin
 end;
 $$;
 
+create or replace function private.validate_entrance_audience()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  selected_audience text;
+begin
+  select audience_type into selected_audience from public.courses where id = new.course_id;
+  if selected_audience = 'inspectors' then
+    if new.inspector_tenure is null or new.adu_comfort is null or new.adu_checklist_clarity is null
+       or new.adu_writing_confidence is null or new.adu_main_difficulty is null then
+      raise exception 'Faltan respuestas obligatorias del diagnóstico ADU';
+    end if;
+  else
+    if new.risk_identification is null or new.unsafe_action is null
+       or new.expectation_text is null or new.main_risk is null then
+      raise exception 'Faltan respuestas obligatorias del formulario general';
+    end if;
+    if selected_audience = 'workers' and new.employed is null then
+      raise exception 'Falta indicar la situación laboral';
+    end if;
+    if selected_audience = 'workers' and new.employed and nullif(trim(new.sector), '') is null then
+      raise exception 'Falta indicar el sector laboral';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function private.validate_exit_audience()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  selected_audience text;
+begin
+  select audience_type into selected_audience from public.courses where id = new.course_id;
+  if selected_audience = 'inspectors' then
+    if new.adu_comfort is null or new.adu_checklist_clarity is null or new.adu_writing_confidence is null then
+      raise exception 'Faltan respuestas obligatorias del diagnóstico ADU';
+    end if;
+  else
+    if new.risk_identification is null or new.unsafe_action is null
+       or new.preventive_measure is null or new.expectation_fulfillment is null then
+      raise exception 'Faltan respuestas obligatorias del formulario general';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
 drop trigger if exists normalize_entrance_response on public.entrance_responses;
 create trigger normalize_entrance_response before insert on public.entrance_responses
 for each row execute function private.normalize_response();
@@ -154,6 +220,14 @@ for each row execute function private.normalize_response();
 drop trigger if exists normalize_exit_response on public.exit_responses;
 create trigger normalize_exit_response before insert on public.exit_responses
 for each row execute function private.normalize_response();
+
+drop trigger if exists validate_entrance_audience on public.entrance_responses;
+create trigger validate_entrance_audience before insert or update on public.entrance_responses
+for each row execute function private.validate_entrance_audience();
+
+drop trigger if exists validate_exit_audience on public.exit_responses;
+create trigger validate_exit_audience before insert or update on public.exit_responses
+for each row execute function private.validate_exit_audience();
 
 alter table public.admin_profiles enable row level security;
 alter table public.courses enable row level security;
@@ -187,6 +261,8 @@ revoke all on function private.is_admin() from public;
 revoke all on function private.course_accepting(uuid) from public;
 revoke all on function private.matching_entrance_exists(uuid, text) from public;
 revoke all on function private.normalize_response() from public;
+revoke all on function private.validate_entrance_audience() from public;
+revoke all on function private.validate_exit_audience() from public;
 grant usage on schema public to anon, authenticated;
 grant usage on schema private to anon, authenticated;
 grant execute on function public.get_active_course_with_questions() to anon, authenticated;
