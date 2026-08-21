@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Ticket de salida de una capacitación de seguridad laboral.">
   <title>Ticket de salida</title>
-  <link rel="stylesheet" href="styles.css?v=20260819-1">
+  <link rel="stylesheet" href="styles.css?v=20260821-1">
 </head>
 <body data-page="exit">
   <main class="shell shell--form">
@@ -30,7 +30,7 @@
           <small>Permite comparar tus respuestas. Los informes muestran datos agrupados.</small>
         </div>
 
-        <fieldset class="field scale-field">
+        <fieldset class="field scale-field" data-audience="workers,internal">
           <legend>Puedo identificar los principales riesgos de mi actividad.</legend>
           <div class="scale" role="radiogroup" aria-label="Capacidad para identificar riesgos">
             <span class="scale__hint">Nada</span>
@@ -43,7 +43,7 @@
           </div>
         </fieldset>
 
-        <fieldset class="field scale-field">
+        <fieldset class="field scale-field" data-audience="workers,internal">
           <legend>Sé cómo actuar cuando detecto una situación insegura.</legend>
           <div class="scale" role="radiogroup" aria-label="Capacidad para actuar">
             <span class="scale__hint">Nada</span>
@@ -56,14 +56,55 @@
           </div>
         </fieldset>
 
+        <section data-audience="inspectors">
+          <fieldset class="field scale-field">
+            <legend>¿Qué tan cómodo/a te resulta ahora utilizar la plataforma o tablet ADU durante una inspección?</legend>
+            <div class="scale" role="radiogroup" aria-label="Comodidad con plataforma ADU al finalizar">
+              <span class="scale__hint">Nada cómodo/a</span>
+              <label><input type="radio" name="adu_comfort" value="1" required><span>1</span></label>
+              <label><input type="radio" name="adu_comfort" value="2"><span>2</span></label>
+              <label><input type="radio" name="adu_comfort" value="3"><span>3</span></label>
+              <label><input type="radio" name="adu_comfort" value="4"><span>4</span></label>
+              <label><input type="radio" name="adu_comfort" value="5"><span>5</span></label>
+              <span class="scale__hint">Muy cómodo/a</span>
+            </div>
+          </fieldset>
+
+          <fieldset class="field scale-field">
+            <legend>¿Qué tan claro tenés ahora qué campos y checklists corresponde completar según el tipo de inspección?</legend>
+            <div class="scale" role="radiogroup" aria-label="Claridad sobre campos y checklists al finalizar">
+              <span class="scale__hint">Nada claro</span>
+              <label><input type="radio" name="adu_checklist_clarity" value="1" required><span>1</span></label>
+              <label><input type="radio" name="adu_checklist_clarity" value="2"><span>2</span></label>
+              <label><input type="radio" name="adu_checklist_clarity" value="3"><span>3</span></label>
+              <label><input type="radio" name="adu_checklist_clarity" value="4"><span>4</span></label>
+              <label><input type="radio" name="adu_checklist_clarity" value="5"><span>5</span></label>
+              <span class="scale__hint">Muy claro</span>
+            </div>
+          </fieldset>
+
+          <fieldset class="field scale-field">
+            <legend>¿Qué tan seguro/a te sentís ahora al redactar observaciones o incumplimientos en una ADU?</legend>
+            <div class="scale" role="radiogroup" aria-label="Seguridad al redactar al finalizar">
+              <span class="scale__hint">Nada seguro/a</span>
+              <label><input type="radio" name="adu_writing_confidence" value="1" required><span>1</span></label>
+              <label><input type="radio" name="adu_writing_confidence" value="2"><span>2</span></label>
+              <label><input type="radio" name="adu_writing_confidence" value="3"><span>3</span></label>
+              <label><input type="radio" name="adu_writing_confidence" value="4"><span>4</span></label>
+              <label><input type="radio" name="adu_writing_confidence" value="5"><span>5</span></label>
+              <span class="scale__hint">Muy seguro/a</span>
+            </div>
+          </fieldset>
+        </section>
+
         <div data-technical-questions></div>
 
-        <div class="field">
+        <div class="field" data-audience="workers,internal">
           <label for="preventive_measure">Mencioná una medida preventiva que aplicarías a partir de lo aprendido.</label>
           <textarea id="preventive_measure" name="preventive_measure" rows="3" maxlength="300" required></textarea>
         </div>
 
-        <fieldset class="field">
+        <fieldset class="field" data-audience="workers,internal">
           <legend>¿En qué medida el curso cumplió tu expectativa inicial?</legend>
           <div class="segmented segmented--three">
             <label><input type="radio" name="expectation_fulfillment" value="Totalmente" required><span>Totalmente</span></label>
@@ -71,6 +112,12 @@
             <label><input type="radio" name="expectation_fulfillment" value="No cumplió"><span>No cumplió</span></label>
           </div>
         </fieldset>
+
+        <div class="field" data-audience="inspectors">
+          <label for="adu_improvement_needed">¿Qué aspecto de la ADU considerás que todavía necesita aclaración o mejora?</label>
+          <textarea id="adu_improvement_needed" name="adu_improvement_needed" rows="3" maxlength="500" placeholder="Opcional"></textarea>
+          <small>Podés señalar una duda de criterio, una dificultad de uso o una mejora del sistema.</small>
+        </div>
 
         <fieldset class="field scale-field">
           <legend>¿Qué tan útil te resultó el curso?</legend>
@@ -92,6 +139,6 @@
 
     <section class="notice-card" data-unavailable-panel hidden></section>
   </main>
-  <script type="module" src="app.js?v=20260819-2"></script>
+  <script type="module" src="app.js?v=20260821-1"></script>
 </body>
 </html>

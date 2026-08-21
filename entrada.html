@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Ticket de entrada de una capacitación de seguridad laboral.">
   <title>Ticket de entrada</title>
-  <link rel="stylesheet" href="styles.css?v=20260819-1">
+  <link rel="stylesheet" href="styles.css?v=20260821-1">
 </head>
 <body data-page="entrance">
   <main class="shell shell--form">
@@ -48,7 +48,7 @@
           </div>
         </div>
 
-        <fieldset class="field">
+        <fieldset class="field" id="employment-field" data-audience="workers">
           <legend>¿Actualmente trabajás?</legend>
           <div class="segmented segmented--two">
             <label><input type="radio" name="employed" value="true" required><span>Sí</span></label>
@@ -56,7 +56,7 @@
           </div>
         </fieldset>
 
-        <div class="field" id="sector-field" hidden>
+        <div class="field" id="sector-field" data-audience="workers" data-conditional hidden>
           <label for="sector">Sector en el que trabajás</label>
           <select id="sector" name="sector">
             <option value="">Seleccionar</option>
@@ -74,7 +74,7 @@
           </select>
         </div>
 
-        <fieldset class="field scale-field">
+        <fieldset class="field scale-field" data-audience="workers,internal">
           <legend>Puedo identificar los principales riesgos de mi actividad.</legend>
           <div class="scale" role="radiogroup" aria-label="Capacidad para identificar riesgos">
             <span class="scale__hint">Nada</span>
@@ -87,7 +87,7 @@
           </div>
         </fieldset>
 
-        <fieldset class="field scale-field">
+        <fieldset class="field scale-field" data-audience="workers,internal">
           <legend>Sé cómo actuar cuando detecto una situación insegura.</legend>
           <div class="scale" role="radiogroup" aria-label="Capacidad para actuar">
             <span class="scale__hint">Nada</span>
@@ -100,15 +100,85 @@
           </div>
         </fieldset>
 
+        <section data-audience="inspectors">
+          <div class="field">
+            <label for="inspector_tenure">¿Hace cuánto realizás tareas inspectivas?</label>
+            <select id="inspector_tenure" name="inspector_tenure" required>
+              <option value="">Seleccionar</option>
+              <option>Menos de 1 año</option>
+              <option>1 a 3 años</option>
+              <option>4 a 7 años</option>
+              <option>8 años o más</option>
+            </select>
+          </div>
+
+          <fieldset class="field scale-field">
+            <legend>¿Qué tan cómodo/a te resulta utilizar la plataforma o tablet ADU durante una inspección?</legend>
+            <div class="scale" role="radiogroup" aria-label="Comodidad con plataforma ADU">
+              <span class="scale__hint">Nada cómodo/a</span>
+              <label><input type="radio" name="adu_comfort" value="1" required><span>1</span></label>
+              <label><input type="radio" name="adu_comfort" value="2"><span>2</span></label>
+              <label><input type="radio" name="adu_comfort" value="3"><span>3</span></label>
+              <label><input type="radio" name="adu_comfort" value="4"><span>4</span></label>
+              <label><input type="radio" name="adu_comfort" value="5"><span>5</span></label>
+              <span class="scale__hint">Muy cómodo/a</span>
+            </div>
+          </fieldset>
+
+          <fieldset class="field scale-field">
+            <legend>¿Qué tan claro tenés qué campos y checklists corresponde completar según el tipo de inspección?</legend>
+            <div class="scale" role="radiogroup" aria-label="Claridad sobre campos y checklists">
+              <span class="scale__hint">Nada claro</span>
+              <label><input type="radio" name="adu_checklist_clarity" value="1" required><span>1</span></label>
+              <label><input type="radio" name="adu_checklist_clarity" value="2"><span>2</span></label>
+              <label><input type="radio" name="adu_checklist_clarity" value="3"><span>3</span></label>
+              <label><input type="radio" name="adu_checklist_clarity" value="4"><span>4</span></label>
+              <label><input type="radio" name="adu_checklist_clarity" value="5"><span>5</span></label>
+              <span class="scale__hint">Muy claro</span>
+            </div>
+          </fieldset>
+
+          <fieldset class="field scale-field">
+            <legend>¿Qué tan seguro/a te sentís al redactar observaciones o incumplimientos en una ADU?</legend>
+            <div class="scale" role="radiogroup" aria-label="Seguridad al redactar observaciones e incumplimientos">
+              <span class="scale__hint">Nada seguro/a</span>
+              <label><input type="radio" name="adu_writing_confidence" value="1" required><span>1</span></label>
+              <label><input type="radio" name="adu_writing_confidence" value="2"><span>2</span></label>
+              <label><input type="radio" name="adu_writing_confidence" value="3"><span>3</span></label>
+              <label><input type="radio" name="adu_writing_confidence" value="4"><span>4</span></label>
+              <label><input type="radio" name="adu_writing_confidence" value="5"><span>5</span></label>
+              <span class="scale__hint">Muy seguro/a</span>
+            </div>
+          </fieldset>
+
+          <div class="field">
+            <label for="adu_main_difficulty">¿En qué aspecto de la ADU encontrás actualmente mayor dificultad?</label>
+            <select id="adu_main_difficulty" name="adu_main_difficulty" required>
+              <option value="">Seleccionar</option>
+              <option>Uso de la plataforma/tablet</option>
+              <option>Selección del tipo o subtipo de acta</option>
+              <option>Estado del domicilio</option>
+              <option>Actividad/CIIU</option>
+              <option>Selección de checklists</option>
+              <option>Carga de cumple/no cumple</option>
+              <option>Redacción de incumplimientos</option>
+              <option>Observaciones</option>
+              <option>Mediciones ambientales</option>
+              <option>Cómputo de inspecciones</option>
+              <option>Otro</option>
+            </select>
+          </div>
+        </section>
+
         <div data-technical-questions></div>
 
-        <div class="field">
+        <div class="field" data-audience="workers,internal">
           <label for="expectation_text">¿Cuál es tu principal expectativa para este curso?</label>
           <textarea id="expectation_text" name="expectation_text" rows="3" minlength="5" maxlength="500" required placeholder="Por ejemplo: obtener herramientas para prevenir riesgos."></textarea>
           <small>Contanos brevemente qué esperás mejorar, aprender o lograr.</small>
         </div>
 
-        <div class="field">
+        <div class="field" data-audience="workers,internal">
           <label for="main_risk">¿Cuál es uno de los principales riesgos de tu actividad?</label>
           <textarea id="main_risk" name="main_risk" rows="3" maxlength="300" required></textarea>
         </div>
@@ -120,6 +190,6 @@
 
     <section class="notice-card" data-unavailable-panel hidden></section>
   </main>
-  <script type="module" src="app.js?v=20260819-2"></script>
+  <script type="module" src="app.js?v=20260821-1"></script>
 </body>
 </html>

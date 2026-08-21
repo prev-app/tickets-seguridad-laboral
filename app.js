@@ -1,5 +1,6 @@
-import { DataClient } from "./data.js?v=20260819-2";
-import { buildReportData, classifyExpectation, getTechnicalQuestions, normalizeEmail, technicalAnswer } from "./stats.js?v=20260819-2";
+import { DataClient } from "./data.js?v=20260821-1";
+import { buildReportData, getTechnicalQuestions, normalizeEmail } from "./stats.js?v=20260821-1";
+import { buildCsvData } from "./exports.js?v=20260821-1";
 
 const client = new DataClient();
 const page = document.body.dataset.page;
@@ -37,6 +38,25 @@ function percent(value) {
   return `${percentFormatter.format(Number(value) || 0)} %`;
 }
 
+const AUDIENCE_TYPES = {
+  workers: {
+    label: "Trabajadores",
+    summary: "Formulario general con situación laboral, sector y preguntas sobre riesgos."
+  },
+  inspectors: {
+    label: "Inspectores",
+    summary: "Diagnóstico de uso de ADU, criterios de carga y redacción de observaciones."
+  },
+  internal: {
+    label: "Capacitación interna",
+    summary: "Formulario general sin las preguntas sobre trabajo actual ni sector."
+  }
+};
+
+function audienceType(course = {}) {
+  return AUDIENCE_TYPES[course.audience_type] ? course.audience_type : "workers";
+}
+
 function courseHeader(course) {
   const statusClass = course.status === "open" ? "" : " status-badge--closed";
   const statusText = course.status === "open" ? "Participación abierta" : "Participación cerrada";
@@ -71,6 +91,22 @@ function technicalQuestions(course) {
 
 function collectTechnicalAnswers(course, values) {
   return Object.fromEntries(getTechnicalQuestions(course).map(item => [item.id, values[`technical_answer_${item.id}`]]));
+}
+
+function configureAudienceSections(course, form) {
+  const type = audienceType(course);
+  $$('[data-audience]', form).forEach(section => {
+    const allowed = section.dataset.audience.split(",").map(value => value.trim());
+    const visible = allowed.includes(type);
+    section.hidden = !visible || section.hasAttribute("data-conditional");
+    $$('input, select, textarea', section).forEach(control => {
+      control.disabled = !visible;
+      if (!visible) {
+        if (control.type === "radio" || control.type === "checkbox") control.checked = false;
+        else control.value = "";
+      }
+    });
+  });
 }
 
 function setMessage(element, message, type = "error") {
@@ -122,8 +158,10 @@ async function initTicket(kind) {
 
     const form = kind === "entrance" ? $("#entrance-form") : $("#exit-form");
     const message = $("[data-form-message]");
+    const type = audienceType(course);
+    configureAudienceSections(course, form);
 
-    if (kind === "entrance") {
+    if (kind === "entrance" && type === "workers") {
       $$(`input[name="employed"]`, form).forEach(input => input.addEventListener("change", () => {
         const working = input.value === "true" && input.checked;
         const sectorField = $("#sector-field");
@@ -144,33 +182,63 @@ async function initTicket(kind) {
       const base = {
         course_id: course.id,
         email: normalizeEmail(values.email),
-        risk_identification: Number(values.risk_identification),
-        unsafe_action: Number(values.unsafe_action),
         objective_answer: firstAnswer,
         technical_answers: answers
       };
       try {
         setBusy(form, true);
         if (kind === "entrance") {
-          await client.submitEntrance({
+          const entrance = {
             ...base,
             age: Number(values.age),
-            education_level: values.education_level,
-            employed: values.employed === "true",
-            sector: values.employed === "true" ? values.sector : null,
-            expectation_text: values.expectation_text.trim(),
-            main_risk: values.main_risk.trim()
-          });
+            education_level: values.education_level
+          };
+          if (type === "inspectors") {
+            Object.assign(entrance, {
+              inspector_tenure: values.inspector_tenure,
+              adu_comfort: Number(values.adu_comfort),
+              adu_checklist_clarity: Number(values.adu_checklist_clarity),
+              adu_writing_confidence: Number(values.adu_writing_confidence),
+              adu_main_difficulty: values.adu_main_difficulty
+            });
+          } else {
+            Object.assign(entrance, {
+              employed: type === "workers" ? values.employed === "true" : null,
+              sector: type === "workers" && values.employed === "true" ? values.sector : null,
+              risk_identification: Number(values.risk_identification),
+              unsafe_action: Number(values.unsafe_action),
+              expectation_text: values.expectation_text.trim(),
+              main_risk: values.main_risk.trim()
+            });
+          }
+          await client.submitEntrance(entrance);
         } else {
-          await client.submitExit({
+          const exit = {
             ...base,
-            preventive_measure: values.preventive_measure.trim(),
-            expectation_fulfillment: values.expectation_fulfillment,
             course_usefulness: Number(values.course_usefulness)
-          });
+          };
+          if (type === "inspectors") {
+            Object.assign(exit, {
+              adu_comfort: Number(values.adu_comfort),
+              adu_checklist_clarity: Number(values.adu_checklist_clarity),
+              adu_writing_confidence: Number(values.adu_writing_confidence),
+              adu_improvement_needed: String(values.adu_improvement_needed || "").trim() || null
+            });
+          } else {
+            Object.assign(exit, {
+              risk_identification: Number(values.risk_identification),
+              unsafe_action: Number(values.unsafe_action),
+              preventive_measure: values.preventive_measure.trim(),
+              expectation_fulfillment: values.expectation_fulfillment
+            });
+          }
+          await client.submitExit(exit);
         }
         form.reset();
-        if (kind === "entrance") $("#sector-field").hidden = true;
+        if (kind === "entrance" && type === "workers") {
+          $("#sector-field").hidden = true;
+          $("#sector").required = false;
+        }
         setMessage(message, "Respuesta guardada correctamente. Gracias por participar.", "success");
         message.scrollIntoView({ behavior: "smooth", block: "center" });
       } catch (error) {
@@ -194,6 +262,13 @@ const DEFAULT_TECHNICAL_QUESTION = {
   question: "Si detectás una condición que puede provocar un accidente, ¿qué deberías hacer primero?",
   options: ["Detener la tarea y comunicar la situación", "Continuar con cuidado", "Esperar a que otra persona lo resuelva", "Ignorarla"],
   correct_answer: "Detener la tarea y comunicar la situación"
+};
+
+const DEFAULT_ADU_QUESTION = {
+  id: "adu_q1",
+  question: "En una inspección fallida, ¿qué corresponde hacer con los checklists de empleador y ART?",
+  options: ["Completar ambos", "Completar solamente el del empleador", "No desplegar ninguno", "Depende del CIIU"],
+  correct_answer: "No desplegar ninguno"
 };
 
 function createQuestionId() {
@@ -261,6 +336,14 @@ function sameTechnicalQuestions(left, right) {
   return JSON.stringify(comparable(left)) === JSON.stringify(comparable(right));
 }
 
+function isGeneralSafetyDefault(items) {
+  return items.length === 1 && /condici[oó]n.*accidente.*primero/i.test(items[0].question);
+}
+
+function isAduDefault(items) {
+  return items.length === 1 && /inspecci[oó]n fallida.*checklists/i.test(items[0].question);
+}
+
 function fillCourseForm(course) {
   const form = $("#course-form");
   const values = course || {
@@ -271,6 +354,7 @@ function fillCourseForm(course) {
     modality: "Presencial",
     start_date: "",
     end_date: "",
+    audience_type: "workers",
     objective_question: "Si detectás una condición que puede provocar un accidente, ¿qué deberías hacer primero?",
     objective_options: ["Detener la tarea y comunicar la situación", "Continuar con cuidado", "Esperar a que otra persona lo resuelva", "Ignorarla"],
     correct_answer: "Detener la tarea y comunicar la situación",
@@ -282,6 +366,12 @@ function fillCourseForm(course) {
     control.value = key === "objective_options" && Array.isArray(value) ? value.join("\n") : (value ?? "");
   });
   renderQuestionEditor(getTechnicalQuestions(values));
+  updateAudienceSummary(audienceType(values));
+}
+
+function updateAudienceSummary(type) {
+  const summary = $("[data-audience-summary]");
+  if (summary) summary.textContent = AUDIENCE_TYPES[type]?.summary || AUDIENCE_TYPES.workers.summary;
 }
 
 function updateAdminSummary() {
@@ -348,42 +438,7 @@ function downloadFile(name, content, type) {
 
 function exportCsv() {
   if (!adminCourse) return;
-  const exits = new Map(adminResponses.exits.map(row => [normalizeEmail(row.email), row]));
-  const questions = getTechnicalQuestions(adminCourse);
-  const technicalHeaders = questions.flatMap((_, index) => [
-    `pregunta_tecnica_${index + 1}`,
-    `respuesta_pregunta_${index + 1}_entrada`,
-    `respuesta_pregunta_${index + 1}_salida`
-  ]);
-  const headers = [
-    "email", "fecha_entrada", "fecha_salida", "edad", "nivel_academico", "trabaja", "sector",
-    "identifica_riesgos_entrada", "identifica_riesgos_salida", "actua_entrada", "actua_salida",
-    ...technicalHeaders, "expectativa_inicial", "categoria_expectativa",
-    "cumplimiento_expectativa", "riesgo_principal", "medida_preventiva", "utilidad_curso"
-  ];
-  const rows = adminResponses.entrances.map(entrance => {
-    const exit = exits.get(normalizeEmail(entrance.email)) || {};
-    const technicalCells = questions.flatMap((question, index) => [
-      question.question,
-      technicalAnswer(entrance, question, index),
-      technicalAnswer(exit, question, index)
-    ]);
-    return [
-      entrance.email, dateTime(entrance.responded_at), dateTime(exit.responded_at), entrance.age, entrance.education_level,
-      entrance.employed ? "Sí" : "No", entrance.sector, entrance.risk_identification, exit.risk_identification,
-      entrance.unsafe_action, exit.unsafe_action, ...technicalCells,
-      entrance.expectation_text, classifyExpectation(entrance.expectation_text).label, exit.expectation_fulfillment,
-      entrance.main_risk, exit.preventive_measure, exit.course_usefulness
-    ];
-  });
-  const unmatchedExits = adminResponses.exits.filter(exit => !adminResponses.entrances.some(entrance => normalizeEmail(entrance.email) === normalizeEmail(exit.email)));
-  unmatchedExits.forEach(exit => {
-    const technicalCells = questions.flatMap((question, index) => [question.question, "", technicalAnswer(exit, question, index)]);
-    rows.push([
-      exit.email, "", dateTime(exit.responded_at), "", "", "", "", "", exit.risk_identification, "", exit.unsafe_action,
-      ...technicalCells, "", "", exit.expectation_fulfillment, "", exit.preventive_measure, exit.course_usefulness
-    ]);
-  });
+  const { headers, rows } = buildCsvData(adminCourse, adminResponses);
   const csv = `\uFEFF${headers.map(csvCell).join(",")}\r\n${rows.map(row => row.map(csvCell).join(",")).join("\r\n")}`;
   downloadFile(`respuestas-${slug(adminCourse.name)}.csv`, csv, "text/csv;charset=utf-8");
 }
@@ -485,31 +540,28 @@ function technicalQuestionsTable(rows) {
   </table>`;
 }
 
+function textResponsesList(items) {
+  if (!items.length) return "<p class='muted'>No se registraron aspectos pendientes.</p>";
+  return `<ul class="response-list">${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
 function reportHtml(data) {
   const generatedAt = new Intl.DateTimeFormat("es-AR", { dateStyle: "long", timeStyle: "short" }).format(new Date());
-  return `<article class="report-paper">
-    <span class="eyebrow">Informe de capacitación</span>
-    <h1>${escapeHtml(data.course.name)}</h1>
-    <div class="report-meta">
-      Profesor/a: ${escapeHtml(data.course.instructor)} · ${escapeHtml(data.course.modality)} · ${number(data.course.hours)} horas<br>
-      Período: ${dateOnly(data.course.start_date)} — ${dateOnly(data.course.end_date)} · Informe generado: ${escapeHtml(generatedAt)}
-    </div>
-
-    <div class="report-cards">
-      <div class="report-card"><strong>${data.entrances.length}</strong><span>Tickets de entrada</span></div>
-      <div class="report-card"><strong>${data.exits.length}</strong><span>Tickets de salida</span></div>
-      <div class="report-card"><strong>${data.paired.length}</strong><span>Casos vinculados</span></div>
-      <div class="report-card"><strong>${percent(data.completionRate)}</strong><span>Tasa de seguimiento</span></div>
-    </div>
-
+  const inspectorReport = data.audience === "inspectors";
+  const learningSection = inspectorReport ? `
+    <h2>Diagnóstico de uso de ADU</h2>
+    <p class="muted">Comparación de las respuestas de entrada y salida de los mismos inspectores.</p>
+    <h3>Principal dificultad informada al ingresar</h3>
+    ${barList(data.adu.difficulties)}
+    ${metricTable("Comodidad con la plataforma/tablet ADU", data.adu.comfort)}
+    ${metricTable("Claridad sobre campos y checklists", data.adu.checklistClarity)}
+    ${metricTable("Seguridad al redactar observaciones e incumplimientos", data.adu.writingConfidence)}
+    <h3>Aspectos que aún requieren aclaración o mejora</h3>
+    ${textResponsesList(data.adu.improvementNeeds)}` : `
     <h2>Evaluación del aprendizaje</h2>
     ${metricTable("Identificación de riesgos", data.risk)}
-    ${metricTable("Actuación ante una situación insegura", data.action)}
-
-    <h2>Preguntas técnicas</h2>
-    <p class="muted">Porcentaje de respuestas correctas antes y después del curso.</p>
-    ${technicalQuestionsTable(data.technicalQuestions)}
-
+    ${metricTable("Actuación ante una situación insegura", data.action)}`;
+  const expectationsSection = inspectorReport ? "" : `
     <h2>Expectativas iniciales y cumplimiento</h2>
     <p>Se clasificaron <strong>${data.expectations.answered} expectativas</strong> (${percent(data.expectations.coverage)} de los tickets de entrada). Cada respuesta pertenece a una sola categoría para que las cantidades y porcentajes no se dupliquen.</p>
     <h3>Expectativas agrupadas</h3>
@@ -521,14 +573,39 @@ function reportHtml(data) {
     ${expectationTable(data.expectations.crossTab)}
     <p class="report-note">El cruce utiliza el mismo correo en entrada y salida. Los porcentajes de cumplimiento de cada fila se calculan solamente sobre quienes contestaron ambos tickets; la columna “Sin respuesta final” hace visible cualquier caso pendiente.</p>
     <h3>Reglas de clasificación utilizadas</h3>
-    <ul class="rule-list">${data.expectations.categories.map(category => `<li><strong>${escapeHtml(category.label)}:</strong> ${escapeHtml(category.description)}.</li>`).join("")}</ul>
+    <ul class="rule-list">${data.expectations.categories.map(category => `<li><strong>${escapeHtml(category.label)}:</strong> ${escapeHtml(category.description)}.</li>`).join("")}</ul>`;
+  const profileExtras = data.audience === "workers" ? `
+    <h3>Situación laboral</h3>${barList(data.employment)}
+    <h3>Sectores laborales</h3>${barList(data.sectors)}` : inspectorReport ? `
+    <h3>Antigüedad en la función inspectiva</h3>${barList(data.inspectorTenure)}` : "";
+  return `<article class="report-paper">
+    <span class="eyebrow">Informe de capacitación</span>
+    <h1>${escapeHtml(data.course.name)}</h1>
+    <div class="report-meta">
+      Profesor/a: ${escapeHtml(data.course.instructor)} · ${escapeHtml(data.course.modality)} · ${number(data.course.hours)} horas<br>
+      Período: ${dateOnly(data.course.start_date)} — ${dateOnly(data.course.end_date)} · Público: ${escapeHtml(AUDIENCE_TYPES[data.audience].label)} · Informe generado: ${escapeHtml(generatedAt)}
+    </div>
+
+    <div class="report-cards">
+      <div class="report-card"><strong>${data.entrances.length}</strong><span>Tickets de entrada</span></div>
+      <div class="report-card"><strong>${data.exits.length}</strong><span>Tickets de salida</span></div>
+      <div class="report-card"><strong>${data.paired.length}</strong><span>Casos vinculados</span></div>
+      <div class="report-card"><strong>${percent(data.completionRate)}</strong><span>Tasa de seguimiento</span></div>
+    </div>
+
+    ${learningSection}
+
+    <h2>Preguntas técnicas</h2>
+    <p class="muted">Porcentaje de respuestas correctas antes y después del curso.</p>
+    ${technicalQuestionsTable(data.technicalQuestions)}
+
+    ${expectationsSection}
 
     <h2>Perfil de participantes</h2>
     <p><strong>Edad:</strong> media ${number(data.age.mean)} años, mediana ${number(data.age.median)}, mínimo ${number(data.age.min)} y máximo ${number(data.age.max)} (n=${data.age.n}).</p>
     <h3>Rangos de edad</h3>${barList(data.ageRanges)}
     <h3>Nivel académico alcanzado</h3>${barList(data.education)}
-    <h3>Situación laboral</h3>${barList(data.employment)}
-    <h3>Sectores laborales</h3>${barList(data.sectors)}
+    ${profileExtras}
 
     <h2>Valoración del curso</h2>
     <p>La utilidad media fue de <strong>${number(data.usefulness.mean)} sobre 5</strong> (mediana ${number(data.usefulness.median)}, n=${data.usefulness.n}).</p>
@@ -542,6 +619,7 @@ function fullReportDocument(content) {
 }
 
 const REPORT_CSS = `
+  .response-list{display:grid;gap:7px;padding-left:19px;font-size:12px;line-height:1.55}
   :root{font-family:Arial,sans-serif;color:#172421}body{margin:0;background:#f3f6f5}.report-paper{max-width:850px;margin:24px auto;padding:38px;background:#fff;box-shadow:0 10px 30px #18362f14}.eyebrow{color:#0b6b58;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.report-paper h1{font-size:32px;margin:5px 0 8px}.report-paper h2{font-size:19px;margin:30px 0 12px;padding-top:18px;border-top:1px solid #dce5e2}.report-paper h3{font-size:15px}.report-meta,.muted{color:#60706c;font-size:13px;line-height:1.5}.report-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:22px 0}.report-card{padding:13px;border:1px solid #dce5e2;border-radius:9px}.report-card strong{display:block;font-size:23px}.report-card span{color:#60706c;font-size:11px}.report-table{display:block;width:100%;max-width:100%;overflow-x:auto;border-collapse:collapse;font-size:12px}.report-table th,.report-table td{padding:8px 6px;border-bottom:1px solid #dce5e2;text-align:right}.report-table th:first-child,.report-table td:first-child{text-align:left}.report-table th{color:#60706c;font-size:10px;text-transform:uppercase}.report-note{padding:11px 13px;border-left:3px solid #0b6b58;background:#e4f3ef;font-size:12px;line-height:1.5}.bar-list{display:grid;gap:9px}.bar-row{display:grid;grid-template-columns:140px 1fr 50px;align-items:center;gap:9px;font-size:12px}.bar-track{height:8px;overflow:hidden;border-radius:99px;background:#e5ece9}.bar-track span{display:block;height:100%;background:#0b6b58}.chart-legend{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0 14px;color:#60706c;font-size:11px}.chart-legend span{display:inline-flex;align-items:center;gap:5px}.chart-legend i{width:10px;height:10px;border-radius:3px}.expectation-chart{display:grid;gap:14px}.stacked-row{display:grid;grid-template-columns:170px 1fr;align-items:center;gap:12px}.stacked-label{font-size:12px;line-height:1.35}.stacked-label strong{display:block}.stacked-track{display:flex;min-height:24px;overflow:hidden;border-radius:6px;background:#e5ece9}.stacked-track span{display:grid;place-items:center;color:#fff;font-size:10px;font-weight:800}.stacked-full{background:#147d68}.stacked-partial{background:#d38b18}.stacked-no{background:#b64b4b}.rule-list{padding-left:19px;color:#60706c;font-size:12px;line-height:1.55}@media(max-width:650px){.report-paper{margin:0;padding:22px 16px}.report-cards{grid-template-columns:repeat(2,1fr)}.bar-row{grid-template-columns:105px 1fr 45px}.stacked-row{grid-template-columns:1fr;gap:5px}}@media print{body{background:#fff}.report-paper{margin:0;padding:0;box-shadow:none}.report-table{display:table;max-width:none;overflow:visible}}`;
 
 function getReportContent() {
@@ -626,6 +704,18 @@ function bindAdminActions() {
     $("#logout-button").hidden = true;
   });
 
+  $$('input[name="audience_type"]').forEach(input => input.addEventListener("change", () => {
+    if (!input.checked) return;
+    updateAudienceSummary(input.value);
+    if (adminResponses.entrances.length + adminResponses.exits.length) return;
+    const questions = readQuestionEditor();
+    if (input.value === "inspectors" && (!adminCourse || isGeneralSafetyDefault(questions))) {
+      renderQuestionEditor([{ ...DEFAULT_ADU_QUESTION }]);
+    } else if (input.value !== "inspectors" && isAduDefault(questions)) {
+      renderQuestionEditor([{ ...DEFAULT_TECHNICAL_QUESTION }]);
+    }
+  }));
+
   $("#add-question-button").addEventListener("click", () => {
     const questions = readQuestionEditor();
     if (questions.length >= 3) return;
@@ -663,6 +753,10 @@ function bindAdminActions() {
     const invalidIndex = questions.findIndex(question => question.options.length < 2 || !question.options.includes(question.correct_answer));
     if (invalidIndex >= 0) return setMessage(message, `Revisá la pregunta ${invalidIndex + 1}: debe tener al menos dos opciones y una respuesta correcta seleccionada.`);
     const responseCount = adminResponses.entrances.length + adminResponses.exits.length;
+    const selectedAudience = audienceType({ audience_type: values.audience_type });
+    if (adminCourse && responseCount && selectedAudience !== audienceType(adminCourse)) {
+      return setMessage(message, `El curso tiene ${responseCount} respuestas. Descargá el respaldo y reiniciá las respuestas antes de cambiar el tipo de público.`);
+    }
     if (adminCourse && responseCount && !sameTechnicalQuestions(questions, getTechnicalQuestions(adminCourse))) {
       return setMessage(message, `El curso tiene ${responseCount} respuestas. Descargá el respaldo y reiniciá las respuestas antes de cambiar las preguntas técnicas, así el informe no mezcla evaluaciones diferentes.`);
     }
@@ -676,6 +770,7 @@ function bindAdminActions() {
         instructor: values.instructor.trim(),
         hours: Number(values.hours),
         modality: values.modality,
+        audience_type: selectedAudience,
         start_date: values.start_date,
         end_date: values.end_date,
         technical_questions: questions,
