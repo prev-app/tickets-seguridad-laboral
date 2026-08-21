@@ -11,6 +11,7 @@ Aplicación web responsive con ticket de entrada, ticket de salida y panel admin
 - comparación de respuestas correctas entre entrada y salida para cada pregunta;
 - expectativa inicial en texto y cumplimiento final total, parcial o no cumplido;
 - clasificación auditable de expectativas por reglas de palabras clave;
+- clasificación estratégica de los aspectos ADU pendientes, con una sola categoría, cantidad, porcentaje y prioridad por respuesta de Inspectores;
 - gráfico y tabla que cruzan cada tipo de expectativa con su cumplimiento;
 - validación de que exista una entrada antes de aceptar la salida;
 - exportación de respuestas a CSV con fecha y hora;

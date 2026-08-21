@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, findOutliers, pairResponses, pairedMetric, buildReportData, classifyExpectation, getTechnicalQuestions, technicalAnswer } from "./stats.js";
+import { analyzeAduImprovements, describe, findOutliers, pairResponses, pairedMetric, buildReportData, classifyAduImprovement, classifyExpectation, getTechnicalQuestions, technicalAnswer } from "./stats.js";
 import { buildCsvData } from "./exports.js";
 
 assert.deepEqual(describe([1, 2, 3, 4, 5]), { n: 5, mean: 3, median: 3, min: 1, max: 5, sd: Math.sqrt(2), range: 4 });
@@ -63,6 +63,10 @@ assert.equal(inspectorReport.adu.comfort.change.mean, 1.5);
 assert.equal(inspectorReport.adu.checklistClarity.improved, 2);
 assert.equal(inspectorReport.adu.difficulties.length, 2);
 assert.equal(inspectorReport.adu.improvementNeeds.length, 1);
+assert.equal(inspectorReport.adu.improvementAnalysis.total, 2);
+assert.equal(inspectorReport.adu.improvementAnalysis.answered, 1);
+assert.equal(inspectorReport.adu.improvementAnalysis.categories.find(row => row.key === "platform").count, 1);
+assert.equal(inspectorReport.adu.improvementAnalysis.categories.find(row => row.key === "no_response").count, 1);
 assert.equal(inspectorReport.inspectorTenure.length, 2);
 assert.equal(inspectorReport.risk.pairs, 0);
 assert.equal(inspectorReport.technicalQuestions[0].entrance.share, 50);
@@ -93,5 +97,24 @@ assert.equal(classifyExpectation("Comprender la normativa y sus requisitos").key
 assert.equal(classifyExpectation("Promover una cultura de seguridad").key, "safety_culture");
 assert.equal(classifyExpectation("Refrescar conceptos y aclarar dudas").key, "refresh_questions");
 assert.equal(classifyExpectation("Compartir experiencias con colegas").key, "other");
+
+assert.equal(classifyAduImprovement("No logré comprender cómo elegir el checklist").key, "understanding_gap");
+assert.equal(classifyAduImprovement("Entendí todo y no tengo nada pendiente").key, "understood");
+assert.equal(classifyAduImprovement("Quiero practicar la selección de checklists").key, "checklists");
+assert.equal(classifyAduImprovement("Necesito mejorar la redacción de incumplimientos").key, "writing");
+assert.equal(classifyAduImprovement("Ganar velocidad con la tablet ADU").key, "platform");
+assert.equal(classifyAduImprovement("Repasar el procedimiento completo").key, "general_review");
+assert.equal(classifyAduImprovement("").key, "no_response");
+
+const improvementAnalysis = analyzeAduImprovements([
+  { adu_improvement_needed: "No entendí el procedimiento" },
+  { adu_improvement_needed: "Practicar checklists" },
+  { adu_improvement_needed: "Todo claro" },
+  { adu_improvement_needed: null }
+]);
+assert.equal(improvementAnalysis.total, 4);
+assert.equal(improvementAnalysis.answered, 3);
+assert.equal(improvementAnalysis.categories.reduce((total, row) => total + row.count, 0), 4);
+assert.equal(improvementAnalysis.categories.find(row => row.key === "understanding_gap").count, 1);
 
 console.log("Pruebas estadísticas correctas");

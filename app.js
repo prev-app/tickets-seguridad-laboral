@@ -1,6 +1,6 @@
-import { DataClient } from "./data.js?v=20260821-1";
-import { buildReportData, getTechnicalQuestions, normalizeEmail } from "./stats.js?v=20260821-1";
-import { buildCsvData } from "./exports.js?v=20260821-1";
+import { DataClient } from "./data.js?v=20260821-2";
+import { buildReportData, getTechnicalQuestions, normalizeEmail } from "./stats.js?v=20260821-2";
+import { buildCsvData } from "./exports.js?v=20260821-2";
 
 const client = new DataClient();
 const page = document.body.dataset.page;
@@ -540,9 +540,19 @@ function technicalQuestionsTable(rows) {
   </table>`;
 }
 
-function textResponsesList(items) {
-  if (!items.length) return "<p class='muted'>No se registraron aspectos pendientes.</p>";
-  return `<ul class="response-list">${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+function improvementClassificationTable(analysis) {
+  const visible = analysis.categories.filter(category => category.count);
+  if (!visible.length) return "<p class='muted'>No se registraron respuestas de salida.</p>";
+  return `<table class="report-table improvement-classification-table">
+    <thead><tr><th>Clasificación estratégica</th><th>Casos</th><th>% de salidas</th><th>Prioridad</th></tr></thead>
+    <tbody>${visible.map(category => `<tr>
+      <td><strong>${escapeHtml(category.label)}</strong><span class="table-detail">${escapeHtml(category.description)}</span></td>
+      <td>${category.count}</td>
+      <td>${percent(category.share)}</td>
+      <td>${escapeHtml(category.priority)}</td>
+    </tr>`).join("")}</tbody>
+  </table>
+  <p class="report-note">Se analizaron <strong>${analysis.answered} respuestas abiertas</strong> (${percent(analysis.coverage)} de los tickets de salida). Cada respuesta se asigna a una sola categoría, priorizando primero señales de falta de comprensión y luego el tema ADU específico.</p>`;
 }
 
 function reportHtml(data) {
@@ -556,8 +566,8 @@ function reportHtml(data) {
     ${metricTable("Comodidad con la plataforma/tablet ADU", data.adu.comfort)}
     ${metricTable("Claridad sobre campos y checklists", data.adu.checklistClarity)}
     ${metricTable("Seguridad al redactar observaciones e incumplimientos", data.adu.writingConfidence)}
-    <h3>Aspectos que aún requieren aclaración o mejora</h3>
-    ${textResponsesList(data.adu.improvementNeeds)}` : `
+    <h3>Clasificación estratégica de aspectos pendientes</h3>
+    ${improvementClassificationTable(data.adu.improvementAnalysis)}` : `
     <h2>Evaluación del aprendizaje</h2>
     ${metricTable("Identificación de riesgos", data.risk)}
     ${metricTable("Actuación ante una situación insegura", data.action)}`;
@@ -619,8 +629,7 @@ function fullReportDocument(content) {
 }
 
 const REPORT_CSS = `
-  .response-list{display:grid;gap:7px;padding-left:19px;font-size:12px;line-height:1.55}
-  :root{font-family:Arial,sans-serif;color:#172421}body{margin:0;background:#f3f6f5}.report-paper{max-width:850px;margin:24px auto;padding:38px;background:#fff;box-shadow:0 10px 30px #18362f14}.eyebrow{color:#0b6b58;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.report-paper h1{font-size:32px;margin:5px 0 8px}.report-paper h2{font-size:19px;margin:30px 0 12px;padding-top:18px;border-top:1px solid #dce5e2}.report-paper h3{font-size:15px}.report-meta,.muted{color:#60706c;font-size:13px;line-height:1.5}.report-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:22px 0}.report-card{padding:13px;border:1px solid #dce5e2;border-radius:9px}.report-card strong{display:block;font-size:23px}.report-card span{color:#60706c;font-size:11px}.report-table{display:block;width:100%;max-width:100%;overflow-x:auto;border-collapse:collapse;font-size:12px}.report-table th,.report-table td{padding:8px 6px;border-bottom:1px solid #dce5e2;text-align:right}.report-table th:first-child,.report-table td:first-child{text-align:left}.report-table th{color:#60706c;font-size:10px;text-transform:uppercase}.report-note{padding:11px 13px;border-left:3px solid #0b6b58;background:#e4f3ef;font-size:12px;line-height:1.5}.bar-list{display:grid;gap:9px}.bar-row{display:grid;grid-template-columns:140px 1fr 50px;align-items:center;gap:9px;font-size:12px}.bar-track{height:8px;overflow:hidden;border-radius:99px;background:#e5ece9}.bar-track span{display:block;height:100%;background:#0b6b58}.chart-legend{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0 14px;color:#60706c;font-size:11px}.chart-legend span{display:inline-flex;align-items:center;gap:5px}.chart-legend i{width:10px;height:10px;border-radius:3px}.expectation-chart{display:grid;gap:14px}.stacked-row{display:grid;grid-template-columns:170px 1fr;align-items:center;gap:12px}.stacked-label{font-size:12px;line-height:1.35}.stacked-label strong{display:block}.stacked-track{display:flex;min-height:24px;overflow:hidden;border-radius:6px;background:#e5ece9}.stacked-track span{display:grid;place-items:center;color:#fff;font-size:10px;font-weight:800}.stacked-full{background:#147d68}.stacked-partial{background:#d38b18}.stacked-no{background:#b64b4b}.rule-list{padding-left:19px;color:#60706c;font-size:12px;line-height:1.55}@media(max-width:650px){.report-paper{margin:0;padding:22px 16px}.report-cards{grid-template-columns:repeat(2,1fr)}.bar-row{grid-template-columns:105px 1fr 45px}.stacked-row{grid-template-columns:1fr;gap:5px}}@media print{body{background:#fff}.report-paper{margin:0;padding:0;box-shadow:none}.report-table{display:table;max-width:none;overflow:visible}}`;
+  :root{font-family:Arial,sans-serif;color:#172421}body{margin:0;background:#f3f6f5}.report-paper{max-width:850px;margin:24px auto;padding:38px;background:#fff;box-shadow:0 10px 30px #18362f14}.eyebrow{color:#0b6b58;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.report-paper h1{font-size:32px;margin:5px 0 8px}.report-paper h2{font-size:19px;margin:30px 0 12px;padding-top:18px;border-top:1px solid #dce5e2}.report-paper h3{font-size:15px}.report-meta,.muted{color:#60706c;font-size:13px;line-height:1.5}.report-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:22px 0}.report-card{padding:13px;border:1px solid #dce5e2;border-radius:9px}.report-card strong{display:block;font-size:23px}.report-card span{color:#60706c;font-size:11px}.report-table{display:block;width:100%;max-width:100%;overflow-x:auto;border-collapse:collapse;font-size:12px}.report-table th,.report-table td{padding:8px 6px;border-bottom:1px solid #dce5e2;text-align:right}.report-table th:first-child,.report-table td:first-child{text-align:left}.report-table th{color:#60706c;font-size:10px;text-transform:uppercase}.table-detail{display:block;margin-top:3px;color:#60706c;font-size:10px;font-weight:400;line-height:1.35}.report-note{padding:11px 13px;border-left:3px solid #0b6b58;background:#e4f3ef;font-size:12px;line-height:1.5}.bar-list{display:grid;gap:9px}.bar-row{display:grid;grid-template-columns:140px 1fr 50px;align-items:center;gap:9px;font-size:12px}.bar-track{height:8px;overflow:hidden;border-radius:99px;background:#e5ece9}.bar-track span{display:block;height:100%;background:#0b6b58}.chart-legend{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0 14px;color:#60706c;font-size:11px}.chart-legend span{display:inline-flex;align-items:center;gap:5px}.chart-legend i{width:10px;height:10px;border-radius:3px}.expectation-chart{display:grid;gap:14px}.stacked-row{display:grid;grid-template-columns:170px 1fr;align-items:center;gap:12px}.stacked-label{font-size:12px;line-height:1.35}.stacked-label strong{display:block}.stacked-track{display:flex;min-height:24px;overflow:hidden;border-radius:6px;background:#e5ece9}.stacked-track span{display:grid;place-items:center;color:#fff;font-size:10px;font-weight:800}.stacked-full{background:#147d68}.stacked-partial{background:#d38b18}.stacked-no{background:#b64b4b}.rule-list{padding-left:19px;color:#60706c;font-size:12px;line-height:1.55}@media(max-width:650px){.report-paper{margin:0;padding:22px 16px}.report-cards{grid-template-columns:repeat(2,1fr)}.bar-row{grid-template-columns:105px 1fr 45px}.stacked-row{grid-template-columns:1fr;gap:5px}}@media print{body{background:#fff}.report-paper{margin:0;padding:0;box-shadow:none}.report-table{display:table;max-width:none;overflow:visible}}`;
 
 function getReportContent() {
   if (!adminCourse) throw new Error("Primero configurá un curso.");
